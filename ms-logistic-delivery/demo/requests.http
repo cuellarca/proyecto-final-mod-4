@@ -1,0 +1,88 @@
+### ms-logistic-delivery — colección de requests de la demo
+### Compatible con el "REST Client" de VS Code / el cliente HTTP de IntelliJ.
+### Ejecutar de arriba hacia abajo: las respuestas alimentan las variables de las siguientes llamadas.
+
+@host = http://localhost:8080
+@repartidor = rep-demo-1
+@fecha = 2026-07-10
+
+### 1) HU-2 · OHS de geocodificación (resuelve una dirección a coordenadas)
+POST {{host}}/api/v1/geocoding
+Content-Type: application/json
+
+{ "direccion": "Av. Banzer 3er anillo, Santa Cruz" }
+
+### 2) HU-1/2/3 · Planificar la ruta del día (paquetes ya geolocalizados; se optimiza y se programan entregas)
+# @name planificar
+POST {{host}}/api/v1/rutas
+Content-Type: application/json
+
+{
+  "repartidorId": "{{repartidor}}",
+  "fecha": "{{fecha}}",
+  "origenLat": -17.78,
+  "origenLon": -63.18,
+  "paquetes": [
+    { "paqueteId": "pkg-1", "pacienteId": "pac-1", "lat": -17.7833, "lon": -63.1821 },
+    { "paqueteId": "pkg-2", "pacienteId": "pac-2", "lat": -17.7900, "lon": -63.1900 }
+  ]
+}
+
+@rutaId = {{planificar.response.body.$.rutaId}}
+@entrega1 = {{planificar.response.body.$.entregas[0].entregaId}}
+@entrega2 = {{planificar.response.body.$.entregas[1].entregaId}}
+
+### 3) HU-1 · Consultar las rutas del repartidor (incluye las paradas con su paradaId)
+# @name rutas
+GET {{host}}/api/v1/repartidores/{{repartidor}}/rutas?fecha={{fecha}}
+
+@parada1 = {{rutas.response.body.$[0].paradas[0].paradaId}}
+
+### 4) HU-3 · Ejecutar la ruta: iniciar, avanzar y completar la primera parada
+POST {{host}}/api/v1/rutas/{{rutaId}}/inicio
+
+###
+POST {{host}}/api/v1/rutas/{{rutaId}}/paradas/{{parada1}}/avance
+
+###
+POST {{host}}/api/v1/rutas/{{rutaId}}/paradas/{{parada1}}/completar
+
+### 5) HU-4 · Confirmar la primera entrega con su constancia (evidencia)
+POST {{host}}/api/v1/entregas/{{entrega1}}/confirmacion
+Content-Type: application/json
+
+{
+  "lat": -17.7833,
+  "lon": -63.1821,
+  "urlEvidencia": "https://storage.example.com/evidencia/pkg-1.jpg",
+  "nombreReceptor": "Maria Perez"
+}
+
+### 6) HU-5 · Fallar la segunda entrega (motivo obligatorio)
+POST {{host}}/api/v1/entregas/{{entrega2}}/fallo
+Content-Type: application/json
+
+{ "motivo": "AUSENTE" }
+
+### 7) HU-5 · Reintentar (según la política, reprograma o marca no concretada)
+POST {{host}}/api/v1/entregas/{{entrega2}}/reintento
+
+### 8) HU-6 · Consultar el respaldo del paciente (read model, poblado por eventos)
+GET {{host}}/api/v1/pacientes/pac-1/entregas
+
+### 9) HU-6 · Consultar la constancia (evidencia) de la entrega confirmada
+GET {{host}}/api/v1/entregas/{{entrega1}}/constancia
+
+### --- Casos de error (application/problem+json) ---
+
+### Confirmar una entrega inexistente -> 404
+POST {{host}}/api/v1/entregas/00000000-0000-0000-0000-000000000000/confirmacion
+Content-Type: application/json
+
+{ "lat": -17.78, "lon": -63.18, "urlEvidencia": "https://s/x.jpg", "nombreReceptor": "X" }
+
+### Cuerpo inválido -> 400
+POST {{host}}/api/v1/rutas
+Content-Type: application/json
+
+{ }

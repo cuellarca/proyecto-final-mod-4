@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.nurtricenter</groupId>
+    <artifactId>ms-logistic-delivery-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>ms-logistic-delivery (parent)</name>
+    <description>
+        Microservicio de Logistica de Entrega — Nur-tricenter. Proyecto Final Modulo 2.
+        Multi-modulo Maven con arquitectura hexagonal: domain, application, infrastructure y bootstrap.
+    </description>
+
+    <modules>
+        <module>domain</module>
+        <module>application</module>
+        <module>infrastructure</module>
+        <module>bootstrap</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Versiones alineadas con Spring Boot 3.5.x -->
+        <spring-boot.version>3.5.3</spring-boot.version>
+        <resilience4j.version>2.3.0</resilience4j.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <jts.version>1.20.0</jts.version>
+        <junit.version>5.11.4</junit.version>
+        <jacoco.version>0.8.13</jacoco.version>
+
+        <!-- Umbral de cobertura por modulo. Cada modulo lo sobreescribe segun testing-rules.md
+             (seccion COBERTURA); 0.00 = sin umbral. Se verifica con: mvn test -Pcobertura -->
+        <cobertura.linea>0.00</cobertura.linea>
+        <cobertura.rama>0.00</cobertura.rama>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- BOM de Spring Boot: gestiona versiones de Spring, Hibernate, Flyway, Testcontainers, Jackson... -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Resilience4j (degradacion del ACL de mapas, HU-3) -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-bom</artifactId>
+                <version>${resilience4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- MapStruct (DTO REST <-> comando) -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- JTS (geometrias en memoria; Point para PostGIS) -->
+            <dependency>
+                <groupId>org.locationtech.jts</groupId>
+                <artifactId>jts-core</artifactId>
+                <version>${jts.version}</version>
+            </dependency>
+
+            <!-- Modulos internos -->
+            <dependency>
+                <groupId>com.nurtricenter</groupId>
+                <artifactId>ms-logistic-delivery-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.nurtricenter</groupId>
+                <artifactId>ms-logistic-delivery-application</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.nurtricenter</groupId>
+                <artifactId>ms-logistic-delivery-infrastructure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- Cobertura: el agente instrumenta la JVM de surefire y el reporte HTML/XML queda
+                 en <modulo>/target/site/jacoco. Heredado por los cuatro modulos. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Fuera del computo: clases sin comportamiento propio (testing-rules.md,
+                         seccion COBERTURA). Probarlas solo subiria el porcentaje. -->
+                    <excludes>
+                        <exclude>**/usecase/query/*View*.class</exclude>
+                        <exclude>**/infrastructure/rest/dto/**</exclude>
+                        <exclude>**/infrastructure/persistence/entity/**</exclude>
+                        <exclude>**/infrastructure/projection/entity/**</exclude>
+                        <exclude>**/infrastructure/messaging/message/**</exclude>
+                        <exclude>**/infrastructure/config/**</exclude>
+                        <exclude>**/outbox/OutboxJpaEntity.class</exclude>
+                        <exclude>**/LogisticDeliveryApplication.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>preparar-agente</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>reporte</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <!-- Conserva los nombres de parametros en el bytecode: necesario para que
+                             Spring MVC resuelva @PathVariable/@RequestParam sin nombre explicito. -->
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>3.5.2</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <!--
+          Perfil de verificacion de cobertura (Tarea 1 - Modulo 4). Lo usa
+          scripts/verificar-pruebas.sh y el skill test-checker:
+
+              mvn test -Pcobertura
+
+          Falla el build si un modulo baja de su umbral (propiedades cobertura.linea /
+          cobertura.rama, definidas en el pom de cada modulo).
+        -->
+        <profile>
+            <id>cobertura</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>verificar-umbral</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <rule>
+                                            <element>BUNDLE</element>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>${cobertura.linea}</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>${cobertura.rama}</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

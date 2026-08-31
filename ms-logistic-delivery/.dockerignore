@@ -1,0 +1,23 @@
+# Artefactos de build locales: la imagen compila desde cero dentro del contenedor.
+target/
+*/target/
+*.class
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.DS_Store
+
+# No hacen falta dentro del build
+demo/
+*.md
+docker-compose.yml
+*.log
+
+# Credenciales: nunca deben entrar en el contexto de build ni en la imagen
+.env
+.env.*

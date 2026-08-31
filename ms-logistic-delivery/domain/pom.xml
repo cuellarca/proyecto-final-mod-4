@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.nurtricenter</groupId>
+        <artifactId>ms-logistic-delivery-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ms-logistic-delivery-domain</artifactId>
+    <packaging>jar</packaging>
+
+    <properties>
+        <!-- Umbral de cobertura de este modulo (testing-rules.md, seccion COBERTURA). -->
+        <cobertura.linea>0.80</cobertura.linea>
+        <cobertura.rama>0.70</cobertura.rama>
+    </properties>
+
+    <name>ms-logistic-delivery :: domain</name>
+    <description>
+        Capa de dominio pura (DDD tactico). Sin framework: solo Java + JUnit (test).
+        Incluye agregados, VOs, servicios de dominio, eventos y los puertos de repositorio.
+    </description>
+
+    <dependencies>
+        <!-- El dominio NO depende de ningun framework. Solo JUnit para las pruebas. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,89 @@
+name: ms-logistic-delivery
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: logistic-postgres
+
+    environment:
+      POSTGRES_DB: logistic
+      POSTGRES_USER: ${DB_USER:?falta DB_USER (copia .env.example a .env)}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD (copia .env.example a .env)}
+
+    ports:
+      - "5435:5432"
+
+    volumes:
+      - logistic-pgdata:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s      # cada cuanto se repite
+      timeout: 5s       # si el comando tarda mas, cuenta como fallo
+      retries: 10       # 10 fallos seguidos -> unhealthy (~50 s de margen)
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: logistic-rabbitmq
+
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?falta RABBITMQ_USER (copia .env.example a .env)}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?falta RABBITMQ_PASSWORD (copia .env.example a .env)}
+
+    ports:
+      - "5672:5672"     # protocolo AMQP: por aqui publica y consume la aplicacion
+      - "15672:15672"   # consola web de administracion (http://localhost:15672)
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: ms-logistic-delivery:1.0.0
+    container_name: logistic-service
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/logistic
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+      JAVA_OPTS: >-
+        -XX:MaxRAMPercentage=60
+        -XX:+UseSerialGC
+        -Xss512k
+        -XX:MaxMetaspaceSize=160m
+        -XX:ReservedCodeCacheSize=64m
+
+    mem_limit: 512m
+
+    ports:
+      - "8080:8080"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+volumes:
+  logistic-pgdata:

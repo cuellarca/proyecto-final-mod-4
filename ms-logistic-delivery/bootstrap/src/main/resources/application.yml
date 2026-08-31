@@ -1,0 +1,105 @@
+spring:
+  application:
+    name: ms-logistic-delivery
+
+  # Credenciales fuera del codigo fuente y fuera de la imagen. Se resuelven, por prioridad:
+  #   1) variables de entorno (asi las inyecta docker compose / docker run --env-file)
+  #   2) fichero .env local, no versionado, para correr la app desde el IDE o Maven
+  #      (./ = raiz del modulo; ../ = cuando spring-boot:run arranca desde bootstrap/)
+  config:
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
+
+  mvc:
+    problemdetails:
+      enabled: true               # errores de framework como application/problem+json (RFC 7807)
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5435/logistic}
+    username: ${DB_USER}          # sin valor por defecto: nada de credenciales en la imagen
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none              # el esquema lo gobierna Flyway (fuente de verdad); Hibernate no toca el DDL
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect   # Hibernate Spatial se activa al detectar el modulo en classpath
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER}
+    password: ${RABBITMQ_PASSWORD}
+
+# --- Configuracion propia del microservicio ---
+logistic:
+  outbox:
+    # Cada cuanto el publicador @Scheduled drena la tabla outbox hacia RabbitMQ (ms).
+    poll-delay-ms: ${OUTBOX_POLL_DELAY_MS:2000}
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+  maps:
+    # Punto base del geocodificador stub (por defecto: centro aprox. de Santa Cruz de la Sierra).
+    base-lat: ${MAPS_BASE_LAT:-17.7692}
+    base-lon: ${MAPS_BASE_LON:-63.1824}
+    # Stub del proveedor de mapas: latencia y probabilidad de fallo para demostrar la degradacion (HU-3).
+    stub-latency-ms: ${MAPS_STUB_LATENCY_MS:200}
+    stub-failure-rate: ${MAPS_STUB_FAILURE_RATE:0.0}
+  reintentos:
+    maximo: ${REINTENTOS_MAXIMO:2}
+
+# --- Resilience4j: protege el ACL al proveedor de mapas (HU-3) ---
+resilience4j:
+  circuitbreaker:
+    instances:
+      mapsProvider:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+  retry:
+    instances:
+      mapsProvider:
+        max-attempts: 3
+        wait-duration: 200ms
+  timelimiter:
+    instances:
+      mapsProvider:
+        timeout-duration: 1s
+
+# --- Actuator: solo health (sonda del contenedor); el resto de endpoints queda cerrado ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true           # /actuator/health/liveness y /readiness
+
+# --- Servidor: el pool por defecto (200 hilos) sobra para la carga de este servicio ---
+server:
+  tomcat:
+    threads:
+      max: 50                   # cada hilo reserva su stack; 200 es dimensionar para un trafico que no existe
+      min-spare: 5
+
+logging:
+  level:
+    com.nurtricenter.logisticdelivery: INFO
+    org.springframework.amqp: WARN

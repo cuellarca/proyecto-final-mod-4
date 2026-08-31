@@ -1,0 +1,29 @@
+# --- Build Maven ---
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- Credenciales: nunca versionar (ver .env.example) ---
+.env
+.env.*
+!.env.example
+
+# --- IDE ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+nbproject/private/
+
+# --- SO ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log

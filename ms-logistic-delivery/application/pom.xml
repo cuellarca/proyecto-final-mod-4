@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.nurtricenter</groupId>
+        <artifactId>ms-logistic-delivery-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ms-logistic-delivery-application</artifactId>
+    <packaging>jar</packaging>
+
+    <properties>
+        <!-- Umbral de cobertura de este modulo (testing-rules.md, seccion COBERTURA). -->
+        <cobertura.linea>0.80</cobertura.linea>
+        <cobertura.rama>0.70</cobertura.rama>
+    </properties>
+
+    <name>ms-logistic-delivery :: application</name>
+    <description>
+        Capa de aplicacion: casos de uso (comandos), queries CQRS y puertos de salida.
+        Depende solo de domain. Usa anotaciones ligeras de Spring (@Service/@Transactional).
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.nurtricenter</groupId>
+            <artifactId>ms-logistic-delivery-domain</artifactId>
+        </dependency>
+
+        <!-- Solo las anotaciones ligeras (@Service, @Transactional): sin arrastrar todo Spring. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

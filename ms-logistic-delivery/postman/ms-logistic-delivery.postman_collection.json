@@ -1,0 +1,818 @@
+{
+  "info": {
+    "_postman_id": "8f3c1d20-6a4e-4f2b-9b71-0d51e2a7c001",
+    "name": "ms-logistic-delivery — API v1",
+    "description": "Colección de la API REST de **ms-logistic-delivery** (NurtriCenter, módulo 4).\n\nCubre las HU-1 a HU-6 en el mismo orden que `demo/demo.sh`: geocodificación (OHS), planificación y ejecución de la ruta del día, confirmación/fallo/reintento de entregas y las consultas del read model (CQRS), más los casos de error `application/problem+json` (RFC 7807).\n\n## Cómo usarla\n\n1. Levantar el stack: `docker compose up -d --build` (ver README del microservicio).\n2. Importar esta colección: no hace falta ningún entorno, trae todas sus variables dentro (pestaña **Variables**).\n3. Ejecutarla de arriba abajo con el **Collection Runner** (o petición por petición): cada respuesta alimenta las variables de las siguientes (`rutaId`, `entregaId1`, `entregaId2`, `paradaId1`, `paradaId2`).\n\nTodas las peticiones traen tests que verifican el código de estado y el contrato de la respuesta.\n\n## Variables\n\nViven en la propia colección (pestaña **Variables**), así que se importa y funciona. Para apuntar a otro despliegue basta con editar `baseUrl` ahí mismo.\n\n| Variable | Uso |\n|---|---|\n| `baseUrl` | Raíz del servicio (`http://localhost:8080`) |\n| `repartidorId` | Se regenera en cada ejecución de «Planificar la ruta del día» |\n| `fecha` | Fecha de la ruta (ISO `yyyy-MM-dd`) |\n| `pacienteId` / `paqueteId1` / `paqueteId2` | Datos de la carga a planificar |\n| `rutaId`, `entregaId1`, `entregaId2`, `paradaId1`, `paradaId2` | Se capturan automáticamente de las respuestas |\n\n> La proyección del read model (HU-6) se alimenta por eventos vía Outbox → RabbitMQ, así que las consultas esperan y reintentan hasta que la proyección aterriza.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 · Salud",
+      "description": "Sonda del contenedor. Es el único endpoint de Actuator expuesto.",
+      "item": [
+        {
+          "name": "00.1 · Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('El servicio está UP', () => {",
+                  "    pm.expect(pm.response.json().status).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Comprueba que la app, Postgres/PostGIS y RabbitMQ están arriba (`show-details: always`)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "HU-2 · Geocodificación (OHS)",
+      "description": "Open Host Service que el contexto de Suscripción consume para resolver una dirección a coordenadas.",
+      "item": [
+        {
+          "name": "01 · Geocodificar una dirección",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Devuelve lat/lon numéricos', () => {",
+                  "    pm.expect(body.lat).to.be.a('number');",
+                  "    pm.expect(body.lon).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.test('Las coordenadas son válidas', () => {",
+                  "    pm.expect(body.lat).to.be.within(-90, 90);",
+                  "    pm.expect(body.lon).to.be.within(-180, 180);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"direccion\": \"Av. Banzer 3er anillo, Santa Cruz\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/geocoding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "geocoding"]
+            },
+            "description": "`POST /api/v1/geocoding` — resuelve una dirección a `{lat, lon}` a través del ACL del proveedor de mapas (stub configurable con `MAPS_STUB_LATENCY_MS` y `MAPS_STUB_FAILURE_RATE`)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "HU-1 / HU-3 · Ruta del día",
+      "description": "Planificación (con optimización por cercanía) y ejecución de la hoja de ruta del repartidor.",
+      "item": [
+        {
+          "name": "02 · Planificar la ruta del día",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Un repartidor distinto por ejecución: así la colección se puede correr",
+                  "// tantas veces como haga falta sin mezclar rutas de corridas anteriores.",
+                  "pm.collectionVariables.set('repartidorId', 'rep-postman-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Devuelve la ruta creada y una entrega por paquete', () => {",
+                  "    pm.expect(body.rutaId).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.entregas).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "",
+                  "// Se correlaciona por paqueteId (no por posición): la optimización reordena las paradas.",
+                  "const e1 = body.entregas.find(e => e.paqueteId === pm.collectionVariables.get('paqueteId1'));",
+                  "const e2 = body.entregas.find(e => e.paqueteId === pm.collectionVariables.get('paqueteId2'));",
+                  "",
+                  "pm.test('Cada paquete tiene su entrega programada', () => {",
+                  "    pm.expect(e1, 'entrega de ' + pm.collectionVariables.get('paqueteId1')).to.exist;",
+                  "    pm.expect(e2, 'entrega de ' + pm.collectionVariables.get('paqueteId2')).to.exist;",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('rutaId', body.rutaId);",
+                  "pm.collectionVariables.set('entregaId1', e1 ? e1.entregaId : '');",
+                  "pm.collectionVariables.set('entregaId2', e2 ? e2.entregaId : '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"repartidorId\": \"{{repartidorId}}\",\n  \"fecha\": \"{{fecha}}\",\n  \"origenLat\": -17.78,\n  \"origenLon\": -63.18,\n  \"paquetes\": [\n    {\n      \"paqueteId\": \"{{paqueteId1}}\",\n      \"pacienteId\": \"{{pacienteId}}\",\n      \"lat\": -17.7833,\n      \"lon\": -63.1821\n    },\n    {\n      \"paqueteId\": \"{{paqueteId2}}\",\n      \"pacienteId\": \"{{pacienteId2}}\",\n      \"lat\": -17.79,\n      \"lon\": -63.19\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas"]
+            },
+            "description": "`POST /api/v1/rutas` — recibe los paquetes del día ya geolocalizados, optimiza la secuencia de paradas y programa una entrega por paquete.\n\nGuarda en variables `rutaId`, `entregaId1` y `entregaId2` para el resto de la colección."
+          },
+          "response": []
+        },
+        {
+          "name": "03 · Rutas del repartidor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const rutas = pm.response.json();",
+                  "pm.test('Devuelve al menos una ruta', () => {",
+                  "    pm.expect(rutas).to.be.an('array').that.is.not.empty;",
+                  "});",
+                  "",
+                  "const rutaId = pm.collectionVariables.get('rutaId');",
+                  "const ruta = rutas.find(r => r.rutaId === rutaId) || rutas[0];",
+                  "",
+                  "pm.test('La ruta está PLANIFICADA y trae sus 2 paradas', () => {",
+                  "    pm.expect(ruta.estado).to.eql('PLANIFICADA');",
+                  "    pm.expect(ruta.paradas).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "",
+                  "pm.test('El orden de las paradas es contiguo 1..n', () => {",
+                  "    const ordenes = ruta.paradas.map(p => p.orden).sort();",
+                  "    pm.expect(ordenes).to.eql([1, 2]);",
+                  "});",
+                  "",
+                  "pm.test('Toda parada tiene geolocalización (invariante HU-2)', () => {",
+                  "    ruta.paradas.forEach(p => {",
+                  "        pm.expect(p.lat, 'lat de ' + p.paqueteId).to.be.a('number');",
+                  "        pm.expect(p.lon, 'lon de ' + p.paqueteId).to.be.a('number');",
+                  "    });",
+                  "});",
+                  "",
+                  "const p1 = ruta.paradas.find(p => p.paqueteId === pm.collectionVariables.get('paqueteId1'));",
+                  "const p2 = ruta.paradas.find(p => p.paqueteId === pm.collectionVariables.get('paqueteId2'));",
+                  "pm.collectionVariables.set('paradaId1', p1 ? p1.paradaId : '');",
+                  "pm.collectionVariables.set('paradaId2', p2 ? p2.paradaId : '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repartidores/{{repartidorId}}/rutas?fecha={{fecha}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repartidores", "{{repartidorId}}", "rutas"],
+              "query": [
+                { "key": "fecha", "value": "{{fecha}}", "description": "Fecha de la jornada, ISO yyyy-MM-dd (obligatoria)" }
+              ]
+            },
+            "description": "`GET /api/v1/repartidores/{repartidorId}/rutas?fecha=` — hoja de ruta del repartidor con sus paradas ordenadas.\n\nCaptura `paradaId1` y `paradaId2` correlacionando por `paqueteId`."
+          },
+          "response": []
+        },
+        {
+          "name": "04 · Iniciar la ruta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('Sin cuerpo de respuesta (es un comando)', () => {",
+                  "    pm.expect(pm.response.text()).to.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/inicio",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas", "{{rutaId}}", "inicio"]
+            },
+            "description": "`POST /api/v1/rutas/{rutaId}/inicio` — transición PLANIFICADA → EN_CURSO. Es requisito para operar cualquier parada."
+          },
+          "response": []
+        },
+        {
+          "name": "05 · Avanzar a la parada 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId1}}/avance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId1}}", "avance"]
+            },
+            "description": "`POST /api/v1/rutas/{rutaId}/paradas/{paradaId}/avance` — llegada del repartidor a la parada (PENDIENTE → EN_CURSO)."
+          },
+          "response": []
+        },
+        {
+          "name": "06 · Completar la parada 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId1}}/completar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId1}}", "completar"]
+            },
+            "description": "`POST .../paradas/{paradaId}/completar` — la parada queda COMPLETADA (EN_CURSO → COMPLETADA). Cuando todas las paradas son terminales, la ruta pasa a FINALIZADA."
+          },
+          "response": []
+        },
+        {
+          "name": "07 · Avanzar a la parada 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId2}}/avance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId2}}", "avance"]
+            },
+            "description": "Llegada a la segunda parada, la que terminará fallando (HU-5)."
+          },
+          "response": []
+        },
+        {
+          "name": "08 · Fallar la parada 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId2}}/fallo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId2}}", "fallo"]
+            },
+            "description": "`POST .../paradas/{paradaId}/fallo` — la parada queda FALLIDA. Con las dos paradas ya terminales, la ruta pasa a FINALIZADA (lo comprueba el caso de error 422 del último folder)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "HU-4 / HU-5 · Entregas",
+      "description": "Confirmación con constancia (HU-4) y fallo + reintento según la política (HU-5).",
+      "item": [
+        {
+          "name": "09 · Confirmar la entrega 1 (con constancia)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": -17.7833,\n  \"lon\": -63.1821,\n  \"urlEvidencia\": \"https://storage.example.com/evidencia/pkg-1.jpg\",\n  \"nombreReceptor\": \"Maria Perez\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId1}}/confirmacion",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "{{entregaId1}}", "confirmacion"]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/confirmacion` — cierra la entrega con su constancia (coordenadas + evidencia + receptor). Los cuatro campos son obligatorios."
+          },
+          "response": []
+        },
+        {
+          "name": "10 · Registrar el fallo de la entrega 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"AUSENTE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "{{entregaId2}}", "fallo"]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/fallo` — el motivo es obligatorio y debe ser uno de: `AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`."
+          },
+          "response": []
+        },
+        {
+          "name": "11 · Reintentar la entrega 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/reintento",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "{{entregaId2}}", "reintento"]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/reintento` — aplica la política de reintento: si queda saldo de intentos la reprograma (`EntregaReprogramada`), si no la marca no concretada (`EntregaNoConcretada`). El máximo se configura con `REINTENTOS_MAXIMO` (2 por defecto)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "HU-6 · Consultas (read model)",
+      "description": "Lado de lectura del CQRS. La proyección se alimenta de los eventos del Outbox, así que estas peticiones esperan y reintentan hasta que aterriza.",
+      "item": [
+        {
+          "name": "12 · Historial de entregas del paciente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El publicador del Outbox drena cada OUTBOX_POLL_DELAY_MS (2 s por defecto):",
+                  "// se le da margen a la proyección antes de consultar el read model.",
+                  "setTimeout(() => {}, 3000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const historial = pm.response.json();",
+                  "const paqueteId1 = pm.collectionVariables.get('paqueteId1');",
+                  "const proyectada = Array.isArray(historial) && historial.some(e => e.paqueteId === paqueteId1);",
+                  "",
+                  "// La proyección es eventual: se reintenta unas cuantas veces antes de darla por fallida.",
+                  "const intentos = Number(pm.collectionVariables.get('_intentosHistorial') || 0);",
+                  "if (!proyectada && intentos < 5) {",
+                  "    pm.collectionVariables.set('_intentosHistorial', intentos + 1);",
+                  "    console.log('Proyección aún no disponible; reintento ' + (intentos + 1) + '/5');",
+                  "    postman.setNextRequest('12 · Historial de entregas del paciente');",
+                  "} else {",
+                  "    pm.collectionVariables.set('_intentosHistorial', 0);",
+                  "",
+                  "    pm.test('El historial del paciente incluye su paquete', () => {",
+                  "        pm.expect(proyectada, 'entrega de ' + paqueteId1 + ' proyectada').to.be.true;",
+                  "    });",
+                  "",
+                  "    pm.test('Cada fila del historial trae el contrato de lectura', () => {",
+                  "        historial.forEach(e => {",
+                  "            pm.expect(e).to.have.property('entregaId');",
+                  "            pm.expect(e).to.have.property('pacienteId');",
+                  "            pm.expect(e).to.have.property('estado');",
+                  "            pm.expect(e).to.have.property('ultimoEventoEn');",
+                  "        });",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pacientes/{{pacienteId}}/entregas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "pacientes", "{{pacienteId}}", "entregas"]
+            },
+            "description": "`GET /api/v1/pacientes/{pacienteId}/entregas` — respaldo de entregas del paciente, servido desde el read model."
+          },
+          "response": []
+        },
+        {
+          "name": "13 · Historial del paciente filtrado por fechas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Devuelve una lista', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pacientes/{{pacienteId}}/entregas?desde={{fechaDesde}}&hasta={{fechaHasta}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "pacientes", "{{pacienteId}}", "entregas"],
+              "query": [
+                { "key": "desde", "value": "{{fechaDesde}}", "description": "Opcional. Límite inferior, ISO yyyy-MM-dd" },
+                { "key": "hasta", "value": "{{fechaHasta}}", "description": "Opcional. Límite superior, ISO yyyy-MM-dd" }
+              ]
+            },
+            "description": "Mismo endpoint con los filtros opcionales `desde` y `hasta` (ambos ISO `yyyy-MM-dd`)."
+          },
+          "response": []
+        },
+        {
+          "name": "14 · Constancia de la entrega confirmada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Mismo motivo que en la petición anterior: la constancia llega por proyección.",
+                  "setTimeout(() => {}, 1000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const intentos = Number(pm.collectionVariables.get('_intentosConstancia') || 0);",
+                  "if (pm.response.code === 404 && intentos < 5) {",
+                  "    pm.collectionVariables.set('_intentosConstancia', intentos + 1);",
+                  "    console.log('Constancia aún no proyectada; reintento ' + (intentos + 1) + '/5');",
+                  "    postman.setNextRequest('14 · Constancia de la entrega confirmada');",
+                  "} else {",
+                  "    pm.collectionVariables.set('_intentosConstancia', 0);",
+                  "",
+                  "    pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "    const constancia = pm.response.json();",
+                  "",
+                  "    pm.test('Es la constancia de la entrega confirmada', () => {",
+                  "        pm.expect(constancia.entregaId).to.eql(pm.collectionVariables.get('entregaId1'));",
+                  "    });",
+                  "",
+                  "    pm.test('Conserva la evidencia registrada al confirmar', () => {",
+                  "        pm.expect(constancia.urlEvidencia).to.eql('https://storage.example.com/evidencia/pkg-1.jpg');",
+                  "        pm.expect(constancia.nombreReceptor).to.eql('Maria Perez');",
+                  "        pm.expect(constancia.lat).to.be.a('number');",
+                  "        pm.expect(constancia.lon).to.be.a('number');",
+                  "        pm.expect(constancia.timestamp).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId1}}/constancia",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "{{entregaId1}}", "constancia"]
+            },
+            "description": "`GET /api/v1/entregas/{entregaId}/constancia` — evidencia (foto/firma), receptor, coordenadas e instante de la entrega. Devuelve 404 si la entrega no tiene constancia."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Errores · application/problem+json (RFC 7807)",
+      "description": "Contrato de errores del `GlobalExceptionHandler`. Todas las respuestas son `application/problem+json` con `type`, `title`, `status` y `detail`.\n\nEstas peticiones dependen del estado que dejó el flujo anterior, así que conviene ejecutarlas después de él.",
+      "item": [
+        {
+          "name": "E1 · Cuerpo inválido al planificar → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Responde como problem+json', () => {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+                  "    pm.expect(pm.response.json().status).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas"]
+            },
+            "description": "Faltan todos los campos obligatorios: la validación de Bean Validation lo rechaza antes de llegar al caso de uso."
+          },
+          "response": []
+        },
+        {
+          "name": "E2 · Identificador mal formado → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('El problema es «Solicitud invalida»', () => {",
+                  "    pm.expect(pm.response.json().title).to.eql('Solicitud invalida');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/no-es-un-uuid/reintento",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "no-es-un-uuid", "reintento"]
+            },
+            "description": "`entregaId` no es un UUID: el value object lo rechaza y el handler lo traduce a 400."
+          },
+          "response": []
+        },
+        {
+          "name": "E3 · Confirmar una entrega inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('El problema es «Recurso no encontrado»', () => {",
+                  "    const problema = pm.response.json();",
+                  "    pm.expect(problema.title).to.eql('Recurso no encontrado');",
+                  "    pm.expect(problema.type).to.include('/problems/not-found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": -17.78,\n  \"lon\": -63.18,\n  \"urlEvidencia\": \"https://storage.example.com/evidencia/inexistente.jpg\",\n  \"nombreReceptor\": \"Nadie\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/00000000-0000-0000-0000-000000000000/confirmacion",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "00000000-0000-0000-0000-000000000000", "confirmacion"]
+            },
+            "description": "UUID bien formado pero sin agregado detrás."
+          },
+          "response": []
+        },
+        {
+          "name": "E4 · Constancia de una entrega sin evidencia → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('El problema es «Recurso no encontrado»', () => {",
+                  "    pm.expect(pm.response.json().title).to.eql('Recurso no encontrado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/constancia",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "{{entregaId2}}", "constancia"]
+            },
+            "description": "La entrega 2 falló, así que nunca generó constancia: no hay evidencia que devolver."
+          },
+          "response": []
+        },
+        {
+          "name": "E5 · Iniciar una ruta ya finalizada → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+                  "pm.test('El problema es una regla de negocio', () => {",
+                  "    const problema = pm.response.json();",
+                  "    pm.expect(problema.title).to.eql('Regla de negocio violada');",
+                  "    pm.expect(problema.type).to.include('/problems/domain-rule');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/inicio",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "rutas", "{{rutaId}}", "inicio"]
+            },
+            "description": "Tras completar y fallar sus dos paradas la ruta quedó FINALIZADA: solo una ruta PLANIFICADA puede iniciarse. La invariante del dominio se traduce a 422."
+          },
+          "response": []
+        },
+        {
+          "name": "E6 · Motivo de fallo inexistente → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"SE_LO_COMIO_EL_PERRO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "entregas", "{{entregaId2}}", "fallo"]
+            },
+            "description": "`motivo` está fuera del enumerado `MotivoFallo` (`AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`): la deserialización falla y devuelve 400."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "repartidorId", "value": "rep-postman-1", "type": "string" },
+    { "key": "fecha", "value": "2026-07-10", "type": "string" },
+    { "key": "fechaDesde", "value": "2026-01-01", "type": "string" },
+    { "key": "fechaHasta", "value": "2026-12-31", "type": "string" },
+    { "key": "pacienteId", "value": "pac-1", "type": "string" },
+    { "key": "pacienteId2", "value": "pac-2", "type": "string" },
+    { "key": "paqueteId1", "value": "pkg-1", "type": "string" },
+    { "key": "paqueteId2", "value": "pkg-2", "type": "string" },
+    { "key": "rutaId", "value": "", "type": "string" },
+    { "key": "entregaId1", "value": "", "type": "string" },
+    { "key": "entregaId2", "value": "", "type": "string" },
+    { "key": "paradaId1", "value": "", "type": "string" },
+    { "key": "paradaId2", "value": "", "type": "string" },
+    { "key": "_intentosHistorial", "value": "0", "type": "string" },
+    { "key": "_intentosConstancia", "value": "0", "type": "string" }
+  ]
+}

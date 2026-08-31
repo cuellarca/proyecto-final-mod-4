@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.nurtricenter</groupId>
+        <artifactId>ms-logistic-delivery-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ms-logistic-delivery-bootstrap</artifactId>
+    <packaging>jar</packaging>
+
+    <name>ms-logistic-delivery :: bootstrap</name>
+    <description>
+        Modulo ejecutable: @SpringBootApplication, configuracion (application.yml),
+        migraciones Flyway y empaquetado del jar. Arrastra infrastructure y todo lo transitivo.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.nurtricenter</groupId>
+            <artifactId>ms-logistic-delivery-infrastructure</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- /actuator/health: lo consulta el HEALTHCHECK del contenedor y el depends_on de compose. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>rabbitmq</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>ms-logistic-delivery</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- El jar ejecutable (fat jar) se publica con clasificador 'exec' para que el
+                         artefacto principal siga siendo el jar normal (clases planas). Asi los tests
+                         de integracion (failsafe, fase verify) ven target/classes y no el fat jar. -->
+                    <classifier>exec</classifier>
+                    <mainClass>com.nurtricenter.logisticdelivery.LogisticDeliveryApplication</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Tests de integracion (*IT con Testcontainers) corren en la fase verify. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
