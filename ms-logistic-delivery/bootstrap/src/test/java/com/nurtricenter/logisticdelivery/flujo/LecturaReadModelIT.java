@@ -1,12 +1,10 @@
 package com.nurtricenter.logisticdelivery.flujo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nurtricenter.logisticdelivery.LogisticDeliveryApplication;
+import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -20,18 +18,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Fase 5 (verificacion de integracion contra PostGIS + RabbitMQ externos): el read model, poblado por
+ * El read model, poblado por
  * el proyector desde los eventos, responde a las consultas de lectura (HU-6) sin tocar el lado de
- * escritura. Requiere Postgres en 5435 y RabbitMQ en 5672.
+ * escritura. Levanta PostGIS y RabbitMQ con Testcontainers.
  */
-@EnabledIfSystemProperty(named = "msld.external.db", matches = "true")
-@SpringBootTest(
-        classes = LogisticDeliveryApplication.class,
-        properties = {
-                "logistic.outbox.poll-delay-ms=500"
-        })
-@AutoConfigureMockMvc
-class Fase5LecturaExternaManualIT {
+@PruebaDeIntegracion
+class LecturaReadModelIT {
 
     @Autowired
     MockMvc mockMvc;
@@ -39,6 +31,7 @@ class Fase5LecturaExternaManualIT {
     ObjectMapper json;
 
     @Test
+    @DisplayName("HU-6 · flujo correcto: el read model se alimenta de los eventos y las consultas responden")
     void confirmarEntregaAlimentaElReadModelYLasConsultasResponden() throws Exception {
         String paciente = "pac-lect-1";
         String repartidor = "rep-lect-1";
@@ -83,6 +76,7 @@ class Fase5LecturaExternaManualIT {
     }
 
     @Test
+    @DisplayName("HU-6 · flujo incorrecto: la constancia de una entrega sin evidencia devuelve 404")
     void constanciaInexistenteDevuelve404() throws Exception {
         mockMvc.perform(get("/api/v1/entregas/{id}/constancia", java.util.UUID.randomUUID().toString()))
                 .andExpect(status().isNotFound());

@@ -11,6 +11,7 @@ import com.nurtricenter.logisticdelivery.infrastructure.messaging.CateringStubLi
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.NotificacionesStubListener;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.RabbitTopologyConfig;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.message.PaquetesListosParaEntregaMessage;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +61,7 @@ abstract class Fase6E2EFlujoTests {
     protected CateringStubListener catering;
 
     @Test
+    @DisplayName("HU-1..HU-6 · flujo correcto: el flujo completo de las seis historias")
     void flujoCompletoDeLasSeisHistorias() throws Exception {
         // HU-1: el productor externo (stub) publica los paquetes listos, ya geolocalizados (HU-2).
         rabbitTemplate.convertAndSend(RabbitTopologyConfig.EXCHANGE, RabbitTopologyConfig.RK_PAQUETES_LISTOS,

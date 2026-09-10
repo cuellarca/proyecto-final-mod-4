@@ -253,12 +253,22 @@ mvn test -Dtest=EntregaTest -Dsurefire.failIfNoSpecifiedTests=false
 
 ### Pruebas de integración (sociables)
 
-Requieren Docker: Testcontainers levanta PostGIS y RabbitMQ solos.
+Requieren Docker: Testcontainers levanta PostGIS y RabbitMQ solos. Su contrato está en
+**[`integration-testing-rules.md`](integration-testing-rules.md)**: qué frontera prueba cada `IT`,
+qué se levanta de verdad y qué se virtualiza, y la exigencia de que cada frontera tenga su **flujo
+correcto y su flujo incorrecto**.
 
 ```bash
+./scripts/verificar-integracion.sh              # Docker + reglas + matriz frontera×flujo + suite
+./scripts/verificar-integracion.sh --rapido     # sin Maven: precondiciones y chequeo mecánico
+./scripts/verificar-integracion.sh --con-postman # además, la colección Postman con newman
+
 mvn verify                   # solitarias + sociables (*IT)
 mvn install -DskipITs        # compilar e instalar saltándose las sociables
 ```
+
+Todas las clases `IT` comparten el cableado de `support/PruebaDeIntegracion`, de modo que la suite
+entera corre sobre un único contexto de Spring y un único par de contenedores.
 
 | Tipo | Sufijo | Plugin | Necesita |
 | :--- | :--- | :--- | :--- |
@@ -270,8 +280,10 @@ mvn install -DskipITs        # compilar e instalar saltándose las sociables
 Los skills leen las mismas reglas que el script de verificación, así que no pueden desalinearse:
 
 ```
-/test-writer    genera pruebas según testing-rules.md y cita la regla de cada aserción
-/test-checker   verifica contra esas mismas reglas; PASS/FAIL
+/test-writer                genera pruebas solitarias según testing-rules.md
+/test-checker               verifica contra esas mismas reglas; PASS/FAIL
+/integration-test-writer    genera pruebas *IT según integration-testing-rules.md
+/integration-test-checker   verifica los *IT contra ese contrato; PASS/FAIL
 ```
 
 Definidos en `.claude/skills/`. Un agente que no soporte skills obtiene lo mismo leyendo

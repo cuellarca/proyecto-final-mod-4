@@ -10,6 +10,10 @@ import org.testcontainers.utility.DockerImageName;
  * Arranca un contenedor Postgres+PostGIS para los tests de integracion y lo cablea al
  * datasource de Spring via {@link ServiceConnection}. La imagen {@code postgis/postgis}
  * se declara compatible con {@code postgres} para reutilizar {@link PostgreSQLContainer}.
+ *
+ * <p>Un contenedor por contexto de Spring: compartirlo entre contextos haria que el publicador del
+ * Outbox de un contexto drenara las filas de otro. Las clases {@code IT} comparten contexto via
+ * {@link PruebaDeIntegracion}, asi que en la practica se levanta uno solo.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class PostgisContainerConfig {

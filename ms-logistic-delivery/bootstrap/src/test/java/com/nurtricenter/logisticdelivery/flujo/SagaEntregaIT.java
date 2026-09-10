@@ -1,6 +1,5 @@
 package com.nurtricenter.logisticdelivery.flujo;
 
-import com.nurtricenter.logisticdelivery.LogisticDeliveryApplication;
 import com.nurtricenter.logisticdelivery.application.usecase.command.ConfirmarEntrega;
 import com.nurtricenter.logisticdelivery.application.usecase.command.ConfirmarEntregaCommand;
 import com.nurtricenter.logisticdelivery.application.usecase.command.PlanificarRutaDelDia;
@@ -13,10 +12,10 @@ import com.nurtricenter.logisticdelivery.application.usecase.command.ReintentarE
 import com.nurtricenter.logisticdelivery.domain.entrega.MotivoFallo;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.CateringStubListener;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.NotificacionesStubListener;
+import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -26,19 +25,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Fase 4 (verificacion de integracion contra PostGIS + RabbitMQ externos): el Outbox se drena a
+ * El Outbox se drena a
  * RabbitMQ y los eventos llegan a los consumidores stub. Demuestra la <b>saga de fallo</b>:
  * EntregaFallida -> ms-notificaciones; y agotados los reintentos, EntregaNoConcretada -> ms-catering.
- * Requiere Postgres en 5435 y RabbitMQ en 5672.
+ * Levanta PostGIS y RabbitMQ con Testcontainers.
  */
-@EnabledIfSystemProperty(named = "msld.external.db", matches = "true")
-@SpringBootTest(
-        classes = LogisticDeliveryApplication.class,
-        properties = {
-                "logistic.reintentos.maximo=1",
-                "logistic.outbox.poll-delay-ms=500"
-        })
-class Fase4SagaExternaManualIT {
+@PruebaDeIntegracion
+class SagaEntregaIT {
 
     @Autowired
     PlanificarRutaDelDia planificarRutaDelDia;
@@ -61,6 +54,7 @@ class Fase4SagaExternaManualIT {
     }
 
     @Test
+    @DisplayName("HU-4 · flujo correcto: EntregaConfirmada llega a ms-notificaciones por RabbitMQ")
     void entregaConfirmadaLlegaAMsNotificaciones() {
         String paciente = "pac-notif-1";
         String entregaId = programarEntrega("rep-n1", "pkg-n1", paciente, LocalDate.of(2026, 7, 14));
@@ -77,6 +71,7 @@ class Fase4SagaExternaManualIT {
     }
 
     @Test
+    @DisplayName("HU-5 · flujo incorrecto: agotados los reintentos la saga termina en ms-catering como no concretada")
     void sagaDeFalloTerminaEnMsCateringComoNoConcretada() {
         String paciente = "pac-catering-1";
         String entregaId = programarEntrega("rep-c1", "pkg-c1", paciente, LocalDate.of(2026, 7, 15));

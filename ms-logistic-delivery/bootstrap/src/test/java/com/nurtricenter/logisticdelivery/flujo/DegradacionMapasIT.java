@@ -1,11 +1,14 @@
 package com.nurtricenter.logisticdelivery.flujo;
 
 import com.nurtricenter.logisticdelivery.LogisticDeliveryApplication;
+import com.nurtricenter.logisticdelivery.support.PostgisContainerConfig;
+import com.nurtricenter.logisticdelivery.support.RabbitContainerConfig;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -14,23 +17,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * HU-3 end-to-end: con el proveedor de mapas "caido" (tasa de fallo 100%), planificar la ruta
+ * HU-3: con el proveedor de mapas "caido" (tasa de fallo 100%), planificar la ruta
  * <b>sigue funcionando</b> porque la optimizacion degrada al fallback por cercania (Haversine).
- * Requiere Postgres en 5435.
+ * Levanta PostGIS con Testcontainers.
  */
-@EnabledIfSystemProperty(named = "msld.external.db", matches = "true")
 @SpringBootTest(
         classes = LogisticDeliveryApplication.class,
         properties = {
                 "logistic.maps.stub-failure-rate=1.0"
         })
 @AutoConfigureMockMvc
-class Fase3DegradacionExternaManualIT {
+@Import({PostgisContainerConfig.class, RabbitContainerConfig.class})
+class DegradacionMapasIT {
 
     @Autowired
     MockMvc mockMvc;
 
     @Test
+    @DisplayName("HU-3 · flujo incorrecto: con el proveedor de mapas caido la planificacion degrada al fallback por cercania")
     void planificaPorCercaniaAunConElProveedorDeMapasCaido() throws Exception {
         String body = """
                 {

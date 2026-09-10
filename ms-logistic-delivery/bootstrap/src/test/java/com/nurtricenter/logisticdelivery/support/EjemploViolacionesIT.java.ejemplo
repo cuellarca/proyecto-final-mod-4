@@ -1,0 +1,32 @@
+package com.nurtricenter.logisticdelivery.support;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.springframework.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+@DirtiesContext
+class EjemploViolacionesIT {
+
+    @MockitoBean
+    RutaRepository rutaRepository;
+
+    @Test
+    void testDeberiaFallarElChequeo() throws Exception {
+        Thread.sleep(200);
+        assertThat(1).isEqualTo(1);
+    }
+
+    @Test
+    void pruebaSinNingunaAsercion() {
+        String url = "amqp://localhost:5672";
+    }
+
+    @Test
+    @Disabled
+    @EnabledIfSystemProperty(named = "algo", matches = "true")
+    void pruebaCondicionadaYApagada() {
+        assertThat(true).isTrue();
+    }
+}

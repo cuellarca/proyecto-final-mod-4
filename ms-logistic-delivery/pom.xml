@@ -34,6 +34,11 @@
         <junit.version>5.11.4</junit.version>
         <jacoco.version>0.8.13</jacoco.version>
 
+        <!-- Version de la API de Docker que docker-java negocia con el daemon. Sin fijarla, la
+             libreria pide una version antigua y los Engine recientes responden 400. Overridable:
+             mvn verify -Ddocker.api.version=1.43 -->
+        <docker.api.version>1.44</docker.api.version>
+
         <!-- Umbral de cobertura por modulo. Cada modulo lo sobreescribe segun testing-rules.md
              (seccion COBERTURA); 0.00 = sin umbral. Se verifica con: mvn test -Pcobertura -->
         <cobertura.linea>0.00</cobertura.linea>
@@ -158,6 +163,11 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.5.2</version>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <api.version>${docker.api.version}</api.version>
+                        </systemPropertyVariables>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.springframework.boot</groupId>

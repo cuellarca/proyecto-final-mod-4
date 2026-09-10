@@ -1,15 +1,12 @@
 package com.nurtricenter.logisticdelivery.messaging;
 
-import com.nurtricenter.logisticdelivery.LogisticDeliveryApplication;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.NotificacionesStubListener;
 import com.nurtricenter.logisticdelivery.infrastructure.outbox.OutboxJpaEntity;
 import com.nurtricenter.logisticdelivery.infrastructure.outbox.OutboxJpaRepository;
-import com.nurtricenter.logisticdelivery.support.PostgisContainerConfig;
-import com.nurtricenter.logisticdelivery.support.RabbitContainerConfig;
+import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -23,8 +20,7 @@ import static org.awaitility.Awaitility.await;
  * llega al consumidor stub. Usa Testcontainers para Postgres+PostGIS y RabbitMQ. Requiere un entorno
  * Docker accesible por la libreria de Testcontainers.
  */
-@SpringBootTest(classes = LogisticDeliveryApplication.class, properties = "logistic.outbox.poll-delay-ms=500")
-@Import({PostgisContainerConfig.class, RabbitContainerConfig.class})
+@PruebaDeIntegracion
 class OutboxPublicacionIT {
 
     @Autowired
@@ -33,6 +29,7 @@ class OutboxPublicacionIT {
     NotificacionesStubListener notificaciones;
 
     @Test
+    @DisplayName("HU-4 · flujo correcto: un evento del Outbox se publica y llega al consumidor")
     void unEventoDelOutboxSePublicaYLlegaAlConsumidor() {
         String paciente = "pac-tc-1";
         outbox.save(new OutboxJpaEntity(

@@ -1,18 +1,16 @@
 package com.nurtricenter.logisticdelivery.flujo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nurtricenter.logisticdelivery.LogisticDeliveryApplication;
 import com.nurtricenter.logisticdelivery.domain.repository.RutaRepository;
 import com.nurtricenter.logisticdelivery.domain.shared.Fecha;
 import com.nurtricenter.logisticdelivery.domain.shared.RepartidorId;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.RabbitTopologyConfig;
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.message.PaquetesListosParaEntregaMessage;
+import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -28,14 +26,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Fase 3 (verificacion de integracion contra PostGIS + RabbitMQ externos): los adaptadores de borde
- * REST y AMQP, y el mapeo de errores a {@code application/problem+json}. Requiere Postgres en 5435 y
- * RabbitMQ en 5672.
+ * Los adaptadores de borde REST y AMQP, y el mapeo de errores a {@code application/problem+json}. Levanta PostGIS y RabbitMQ con Testcontainers.
  */
-@EnabledIfSystemProperty(named = "msld.external.db", matches = "true")
-@SpringBootTest(classes = LogisticDeliveryApplication.class)
-@AutoConfigureMockMvc
-class Fase3BordeExternaManualIT {
+@PruebaDeIntegracion
+class BordeRestAmqpIT {
 
     @Autowired
     MockMvc mockMvc;
@@ -47,6 +41,7 @@ class Fase3BordeExternaManualIT {
     RutaRepository rutaRepository;
 
     @Test
+    @DisplayName("HU-1/HU-4 · flujo correcto: el borde REST planifica, confirma y mapea los errores a problem+json")
     void restPlanificaConfirmaYMapeaErrores() throws Exception {
         String body = """
                 {
@@ -92,6 +87,7 @@ class Fase3BordeExternaManualIT {
     }
 
     @Test
+    @DisplayName("HU-2 · flujo correcto: el endpoint de geocodificacion devuelve coordenadas")
     void geocodingOhsDevuelveCoordenadas() throws Exception {
         mockMvc.perform(post("/api/v1/geocoding")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -102,6 +98,7 @@ class Fase3BordeExternaManualIT {
     }
 
     @Test
+    @DisplayName("HU-1 · flujo correcto: el consumidor AMQP planifica la ruta desde PaquetesListos")
     void consumerAmqpPlanificaLaRutaDesdePaquetesListos() {
         RepartidorId repartidor = RepartidorId.de("rep-amqp-1");
         LocalDate fecha = LocalDate.of(2026, 7, 12);

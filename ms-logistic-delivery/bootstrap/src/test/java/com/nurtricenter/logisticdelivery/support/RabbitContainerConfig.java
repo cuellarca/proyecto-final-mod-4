@@ -9,6 +9,8 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Arranca un contenedor RabbitMQ para los tests de integracion y lo cablea a Spring AMQP via
  * {@link ServiceConnection}. Se combina con {@link PostgisContainerConfig} en los tests de la saga.
+ * Un broker por contexto: si dos contextos comparten uno, sus listeners compiten por los mismos
+ * mensajes y el evento le llega al contexto equivocado.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class RabbitContainerConfig {

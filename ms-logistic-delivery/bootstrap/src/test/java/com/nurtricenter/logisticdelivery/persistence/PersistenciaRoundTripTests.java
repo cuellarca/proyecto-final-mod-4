@@ -18,6 +18,7 @@ import com.nurtricenter.logisticdelivery.domain.shared.PaqueteId;
 import com.nurtricenter.logisticdelivery.domain.shared.RepartidorId;
 import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
 import com.nurtricenter.logisticdelivery.domain.shared.Url;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -41,6 +42,7 @@ abstract class PersistenciaRoundTripTests {
     protected EntregaRepository entregaRepository;
 
     @Test
+    @DisplayName("HU-1 · flujo correcto: una ruta con paradas geolocalizadas sobrevive el round-trip a PostGIS")
     void guardaYRehidrataUnaRutaConParadasGeolocalizadas() {
         RepartidorId repartidor = RepartidorId.de("rep-001");
         Fecha fecha = Fecha.de(2026, 7, 10);
@@ -67,6 +69,7 @@ abstract class PersistenciaRoundTripTests {
     }
 
     @Test
+    @DisplayName("HU-3 · flujo correcto: actualizar una ruta en curso preserva la identidad de sus paradas")
     void actualizaUnaRutaEnCursoPreservandoLaIdentidadDeSusParadas() {
         RutaDeEntrega ruta = RutaDeEntrega.planificar(
                 RepartidorId.de("rep-002"), Fecha.de(2026, 7, 11),
@@ -86,6 +89,7 @@ abstract class PersistenciaRoundTripTests {
     }
 
     @Test
+    @DisplayName("HU-4 · flujo correcto: una entrega confirmada se rehidrata con su constancia")
     void guardaYRehidrataUnaEntregaConfirmadaConSuConstancia() {
         Entrega entrega = Entrega.programar(
                 PaqueteId.de("pkg-9"), PacienteId.de("pac-9"), RutaId.nuevo(), 2);
@@ -111,6 +115,7 @@ abstract class PersistenciaRoundTripTests {
     }
 
     @Test
+    @DisplayName("HU-5 · flujo correcto: una entrega fallida se rehidrata con su motivo")
     void guardaYRehidrataUnaEntregaFallidaConSuMotivo() {
         Entrega entrega = Entrega.programar(
                 PaqueteId.de("pkg-8"), PacienteId.de("pac-8"), RutaId.nuevo(), 2);

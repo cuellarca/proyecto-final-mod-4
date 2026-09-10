@@ -1,6 +1,5 @@
 package com.nurtricenter.logisticdelivery.flujo;
 
-import com.nurtricenter.logisticdelivery.LogisticDeliveryApplication;
 import com.nurtricenter.logisticdelivery.application.usecase.command.ConfirmarEntrega;
 import com.nurtricenter.logisticdelivery.application.usecase.command.ConfirmarEntregaCommand;
 import com.nurtricenter.logisticdelivery.application.usecase.command.PlanificarRutaDelDia;
@@ -12,10 +11,10 @@ import com.nurtricenter.logisticdelivery.domain.repository.EntregaRepository;
 import com.nurtricenter.logisticdelivery.domain.shared.EntregaId;
 import com.nurtricenter.logisticdelivery.infrastructure.outbox.OutboxJpaEntity;
 import com.nurtricenter.logisticdelivery.infrastructure.outbox.OutboxJpaRepository;
+import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,13 +22,12 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Fase 2 (verificacion de integracion contra PostGIS externo): planificar la ruta del dia (crea la
+ * Planificar la ruta del dia (crea la
  * ruta y las entregas) y confirmar una entrega deja la {@code Entrega} ENTREGADA con su constancia y
- * una fila {@code EntregaConfirmada} en el Outbox, en la misma transaccion. Requiere Postgres en 5435.
+ * una fila {@code EntregaConfirmada} en el Outbox, en la misma transaccion. Levanta PostGIS con Testcontainers.
  */
-@EnabledIfSystemProperty(named = "msld.external.db", matches = "true")
-@SpringBootTest(classes = LogisticDeliveryApplication.class)
-class Fase2FlujoExternaManualIT {
+@PruebaDeIntegracion
+class FlujoPersistenciaOutboxIT {
 
     @Autowired
     PlanificarRutaDelDia planificarRutaDelDia;
@@ -41,6 +39,7 @@ class Fase2FlujoExternaManualIT {
     OutboxJpaRepository outbox;
 
     @Test
+    @DisplayName("HU-4 · flujo correcto: planificar y confirmar persiste la entrega y deja el evento en el Outbox")
     void planificarYConfirmarPersisteLaEntregaYDejaElEventoEnOutbox() {
         PlanificarRutaResultado plan = planificarRutaDelDia.ejecutar(new PlanificarRutaDelDiaCommand(
                 "rep-77", LocalDate.of(2026, 7, 10), -17.78, -63.18,
