@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ProyectorHistorial.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.projection</a> &gt; <span class="el_source">ProyectorHistorial.java</span></div><h1>ProyectorHistorial.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.projection;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.nurtricenter.logisticdelivery.infrastructure.messaging.EventoIntegracion;
+import com.nurtricenter.logisticdelivery.infrastructure.messaging.RabbitTopologyConfig;
+import com.nurtricenter.logisticdelivery.infrastructure.messaging.RegistroDeIdempotencia;
+import com.nurtricenter.logisticdelivery.infrastructure.projection.entity.HistorialEntregaPacienteJpaEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Proyector del read model del historial de entregas (HU-6): consume los eventos de la entrega desde
+ * RabbitMQ y hace &lt;b&gt;upsert&lt;/b&gt; en {@code historial_entrega_paciente}. Deduplica por {@code eventId}
+ * (idempotencia). Es el unico que escribe el read model; las consultas solo leen.
+ */
+@Component
+public class ProyectorHistorial {
+
+<span class="fc" id="L26">    private static final Logger log = LoggerFactory.getLogger(ProyectorHistorial.class);</span>
+    private static final String CONSUMIDOR = &quot;proyector-historial&quot;;
+
+    private final HistorialJpaRepository repositorio;
+    private final RegistroDeIdempotencia idempotencia;
+    private final Clock clock;
+
+<span class="fc" id="L33">    public ProyectorHistorial(HistorialJpaRepository repositorio, RegistroDeIdempotencia idempotencia, Clock clock) {</span>
+<span class="fc" id="L34">        this.repositorio = repositorio;</span>
+<span class="fc" id="L35">        this.idempotencia = idempotencia;</span>
+<span class="fc" id="L36">        this.clock = clock;</span>
+<span class="fc" id="L37">    }</span>
+
+    @RabbitListener(queues = RabbitTopologyConfig.QUEUE_PROYECCION)
+    @Transactional
+    public void onEvento(EventoIntegracion evento) {
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (!idempotencia.primeraVez(CONSUMIDOR, evento.eventId())) {</span>
+<span class="fc" id="L43">            return;</span>
+        }
+<span class="fc" id="L45">        JsonNode payload = evento.payload();</span>
+<span class="fc" id="L46">        String entregaId = payload.path(&quot;entregaId&quot;).asText(null);</span>
+<span class="pc bpc" id="L47" title="1 of 4 branches missed.">        if (entregaId == null || entregaId.isBlank()) {</span>
+<span class="fc" id="L48">            return; // eventos sin entrega (p. ej. de ruta) no proyectan al historial de paciente</span>
+        }
+
+<span class="fc" id="L51">        UUID id = UUID.fromString(entregaId);</span>
+<span class="fc" id="L52">        String pacienteId = payload.path(&quot;pacienteId&quot;).asText(null);</span>
+<span class="fc" id="L53">        HistorialEntregaPacienteJpaEntity fila = repositorio.findById(id)</span>
+<span class="fc" id="L54">                .orElseGet(() -&gt; new HistorialEntregaPacienteJpaEntity(id, pacienteId));</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        if (pacienteId != null) {</span>
+<span class="fc" id="L56">            fila.setPacienteId(pacienteId);</span>
+        }
+<span class="fc" id="L58">        fila.setUltimoEventoEn(evento.occurredAt());</span>
+<span class="fc" id="L59">        fila.setActualizadoEn(Instant.now(clock));</span>
+
+<span class="pc bpc" id="L61" title="2 of 5 branches missed.">        switch (evento.type()) {</span>
+<span class="fc" id="L62">            case &quot;EntregaConfirmada&quot; -&gt; aplicarConfirmada(fila, payload);</span>
+<span class="fc" id="L63">            case &quot;EntregaFallida&quot; -&gt; aplicarFallida(fila, payload);</span>
+<span class="fc" id="L64">            case &quot;EntregaReprogramada&quot; -&gt; aplicarReprogramada(fila, payload);</span>
+<span class="nc" id="L65">            case &quot;EntregaNoConcretada&quot; -&gt; fila.setEstado(&quot;NO_CONCRETADA&quot;);</span>
+            default -&gt; {
+<span class="nc" id="L67">                return;</span>
+            }
+        }
+
+<span class="fc" id="L71">        repositorio.save(fila);</span>
+<span class="fc" id="L72">        log.info(&quot;[proyector] historial actualizado: entrega {} paciente {} -&gt; {}&quot;,</span>
+<span class="fc" id="L73">                entregaId, fila.getPacienteId(), fila.getEstado());</span>
+<span class="fc" id="L74">    }</span>
+
+    private void aplicarConfirmada(HistorialEntregaPacienteJpaEntity fila, JsonNode payload) {
+<span class="fc" id="L77">        fila.setEstado(&quot;CONFIRMADA&quot;);</span>
+<span class="fc" id="L78">        fila.setPaqueteId(payload.path(&quot;paqueteId&quot;).asText(null));</span>
+<span class="fc" id="L79">        fila.setMotivoFallo(null);</span>
+
+<span class="fc" id="L81">        JsonNode constancia = payload.path(&quot;constancia&quot;);</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        if (!constancia.isMissingNode()) {</span>
+<span class="fc" id="L83">            fila.setConstanciaTimestamp(Instant.parse(constancia.path(&quot;timestamp&quot;).asText()));</span>
+<span class="fc" id="L84">            fila.setConstanciaLat(constancia.path(&quot;geolocalizacion&quot;).path(&quot;lat&quot;).asDouble());</span>
+<span class="fc" id="L85">            fila.setConstanciaLon(constancia.path(&quot;geolocalizacion&quot;).path(&quot;lon&quot;).asDouble());</span>
+<span class="fc" id="L86">            fila.setConstanciaUrl(constancia.path(&quot;urlEvidencia&quot;).asText(null));</span>
+<span class="fc" id="L87">            fila.setConstanciaReceptor(constancia.path(&quot;nombreReceptor&quot;).asText(null));</span>
+        }
+<span class="fc" id="L89">    }</span>
+
+    private void aplicarFallida(HistorialEntregaPacienteJpaEntity fila, JsonNode payload) {
+<span class="fc" id="L92">        fila.setEstado(&quot;FALLIDA&quot;);</span>
+<span class="fc" id="L93">        fila.setMotivoFallo(payload.path(&quot;motivo&quot;).asText(null));</span>
+<span class="fc" id="L94">    }</span>
+
+    private void aplicarReprogramada(HistorialEntregaPacienteJpaEntity fila, JsonNode payload) {
+<span class="fc" id="L97">        fila.setEstado(&quot;REPROGRAMADA&quot;);</span>
+<span class="fc" id="L98">        fila.setIntentos(payload.path(&quot;intento&quot;).asInt());</span>
+<span class="fc" id="L99">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

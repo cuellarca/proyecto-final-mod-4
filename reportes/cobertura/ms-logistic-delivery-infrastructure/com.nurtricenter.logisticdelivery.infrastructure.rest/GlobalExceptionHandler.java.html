@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>GlobalExceptionHandler.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.rest</a> &gt; <span class="el_source">GlobalExceptionHandler.java</span></div><h1>GlobalExceptionHandler.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.rest;
+
+import com.nurtricenter.logisticdelivery.application.EntidadNoEncontradaException;
+import com.nurtricenter.logisticdelivery.domain.shared.DomainException;
+import com.nurtricenter.logisticdelivery.infrastructure.acl.ProveedorDeMapasNoDisponibleException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import java.net.URI;
+
+/**
+ * Traduce las excepciones a respuestas {@code application/problem+json} (RFC 7807). Las invariantes
+ * del dominio ({@code DomainException}) se mapean a 422; un agregado inexistente a 404; y la caida
+ * del proveedor de mapas a 503. Los errores de validacion de framework los cubre la clase base.
+ */
+@RestControllerAdvice
+<span class="fc" id="L22">public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {</span>
+
+<span class="fc" id="L24">    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);</span>
+
+    @ExceptionHandler(EntidadNoEncontradaException.class)
+    public ProblemDetail manejarNoEncontrada(EntidadNoEncontradaException ex) {
+<span class="fc" id="L28">        return problema(HttpStatus.NOT_FOUND, &quot;Recurso no encontrado&quot;, ex.getMessage(), &quot;not-found&quot;);</span>
+    }
+
+    @ExceptionHandler(DomainException.class)
+    public ProblemDetail manejarInvarianteDominio(DomainException ex) {
+<span class="fc" id="L33">        return problema(HttpStatus.UNPROCESSABLE_ENTITY, &quot;Regla de negocio violada&quot;, ex.getMessage(), &quot;domain-rule&quot;);</span>
+    }
+
+    @ExceptionHandler(ProveedorDeMapasNoDisponibleException.class)
+    public ProblemDetail manejarProveedorCaido(ProveedorDeMapasNoDisponibleException ex) {
+<span class="fc" id="L38">        return problema(HttpStatus.SERVICE_UNAVAILABLE, &quot;Proveedor de mapas no disponible&quot;, ex.getMessage(), &quot;maps-unavailable&quot;);</span>
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail manejarArgumentoInvalido(IllegalArgumentException ex) {
+        // p. ej. UUID mal formado en un path variable.
+<span class="fc" id="L44">        return problema(HttpStatus.BAD_REQUEST, &quot;Solicitud invalida&quot;, ex.getMessage(), &quot;bad-request&quot;);</span>
+    }
+
+    private ProblemDetail problema(HttpStatus status, String title, String detail, String slug) {
+<span class="fc" id="L48">        log.debug(&quot;[{}] {} -&gt; {}&quot;, status.value(), title, detail);</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail == null ? title : detail);</span>
+<span class="fc" id="L50">        pd.setTitle(title);</span>
+<span class="fc" id="L51">        pd.setType(URI.create(&quot;https://nurtricenter.com/problems/&quot; + slug));</span>
+<span class="fc" id="L52">        return pd;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

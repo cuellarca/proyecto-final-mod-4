@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Parada.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.ruta</a> &gt; <span class="el_source">Parada.java</span></div><h1>Parada.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.ruta;
+
+import com.nurtricenter.logisticdelivery.domain.shared.DomainException;
+import com.nurtricenter.logisticdelivery.domain.shared.Geolocalizacion;
+import com.nurtricenter.logisticdelivery.domain.shared.PacienteId;
+import com.nurtricenter.logisticdelivery.domain.shared.PaqueteId;
+import com.nurtricenter.logisticdelivery.domain.shared.ParadaId;
+
+import java.util.Objects;
+
+/**
+ * Entidad {@code Parada}: un punto de entrega dentro de una {@code RutaDeEntrega}.
+ *
+ * &lt;p&gt;Es una Entidad (no un Value Object) porque tiene identidad propia y cambia de
+ * estado durante la jornada. Vive &lt;b&gt;dentro&lt;/b&gt; del agregado RutaDeEntrega: sus
+ * transiciones de estado son de visibilidad de paquete para que solo la raiz las
+ * gobierne (nunca se manipula una parada por fuera de su ruta).&lt;/p&gt;
+ *
+ * &lt;p&gt;Invariante HU-2: toda parada tiene {@code Geolocalizacion}; no se puede crear
+ * una parada sin coordenadas.&lt;/p&gt;
+ */
+public class Parada {
+
+    private final ParadaId id;
+    private final PaqueteId paqueteId;
+    private final PacienteId pacienteId;
+    private final Geolocalizacion geolocalizacion;
+    private int orden;
+    private EstadoParada estado;
+
+    private Parada(ParadaId id, PaqueteId paqueteId, PacienteId pacienteId,
+<span class="fc" id="L32">                   int orden, Geolocalizacion geolocalizacion, EstadoParada estado) {</span>
+<span class="fc" id="L33">        this.id = Objects.requireNonNull(id, &quot;ParadaId requerido&quot;);</span>
+<span class="fc" id="L34">        this.paqueteId = Objects.requireNonNull(paqueteId, &quot;PaqueteId requerido&quot;);</span>
+<span class="fc" id="L35">        this.pacienteId = Objects.requireNonNull(pacienteId, &quot;PacienteId requerido&quot;);</span>
+<span class="fc" id="L36">        this.geolocalizacion = Objects.requireNonNull(geolocalizacion,</span>
+                &quot;Una parada debe tener geolocalizacion (HU-2)&quot;);
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (orden &lt; 1) {</span>
+<span class="fc" id="L39">            throw new DomainException(&quot;El orden de la parada debe ser &gt;= 1&quot;);</span>
+        }
+<span class="fc" id="L41">        this.orden = orden;</span>
+<span class="fc" id="L42">        this.estado = Objects.requireNonNull(estado, &quot;EstadoParada requerido&quot;);</span>
+<span class="fc" id="L43">    }</span>
+
+    /** Crea una parada nueva (estado inicial Pendiente) con identidad generada. */
+    public static Parada crear(PaqueteId paqueteId, PacienteId pacienteId,
+                               int orden, Geolocalizacion geolocalizacion) {
+<span class="fc" id="L48">        return new Parada(ParadaId.nuevo(), paqueteId, pacienteId, orden,</span>
+                geolocalizacion, EstadoParada.PENDIENTE);
+    }
+
+    /** Reconstruye una parada existente (p. ej. desde persistencia). */
+    public static Parada rehidratar(ParadaId id, PaqueteId paqueteId, PacienteId pacienteId,
+                                     int orden, Geolocalizacion geolocalizacion, EstadoParada estado) {
+<span class="fc" id="L55">        return new Parada(id, paqueteId, pacienteId, orden, geolocalizacion, estado);</span>
+    }
+
+    // --- Comportamiento gobernado por la raiz RutaDeEntrega (visibilidad de paquete) ---
+
+    void iniciar() {
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        if (estado != EstadoParada.PENDIENTE) {</span>
+<span class="nc" id="L62">            throw new DomainException(&quot;Solo una parada PENDIENTE puede iniciarse (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L64">        estado = EstadoParada.EN_CURSO;</span>
+<span class="fc" id="L65">    }</span>
+
+    void completar() {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (estado != EstadoParada.EN_CURSO) {</span>
+<span class="fc" id="L69">            throw new DomainException(&quot;Solo una parada EN_CURSO puede completarse (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L71">        estado = EstadoParada.COMPLETADA;</span>
+<span class="fc" id="L72">    }</span>
+
+    void fallar() {
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">        if (estado.esTerminal()) {</span>
+<span class="nc" id="L76">            throw new DomainException(&quot;Una parada terminal no puede fallar (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L78">        estado = EstadoParada.FALLIDA;</span>
+<span class="fc" id="L79">    }</span>
+
+    void asignarOrden(int nuevoOrden) {
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        if (nuevoOrden &lt; 1) {</span>
+<span class="nc" id="L83">            throw new DomainException(&quot;El orden de la parada debe ser &gt;= 1&quot;);</span>
+        }
+<span class="fc" id="L85">        this.orden = nuevoOrden;</span>
+<span class="fc" id="L86">    }</span>
+
+    // --- Getters (sin setters: el estado solo cambia por comportamiento) ---
+
+    public ParadaId id() {
+<span class="fc" id="L91">        return id;</span>
+    }
+
+    public PaqueteId paqueteId() {
+<span class="fc" id="L95">        return paqueteId;</span>
+    }
+
+    public PacienteId pacienteId() {
+<span class="fc" id="L99">        return pacienteId;</span>
+    }
+
+    public Geolocalizacion geolocalizacion() {
+<span class="fc" id="L103">        return geolocalizacion;</span>
+    }
+
+    public int orden() {
+<span class="fc" id="L107">        return orden;</span>
+    }
+
+    public EstadoParada estado() {
+<span class="fc" id="L111">        return estado;</span>
+    }
+
+    // Identidad: dos paradas son la misma si comparten ParadaId (regla de Entidad).
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if (this == o) {</span>
+<span class="fc" id="L118">            return true;</span>
+        }
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">        if (!(o instanceof Parada otra)) {</span>
+<span class="nc" id="L121">            return false;</span>
+        }
+<span class="fc" id="L123">        return id.equals(otra.id);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L128">        return id.hashCode();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L133">        return &quot;Parada{orden=&quot; + orden + &quot;, paquete=&quot; + paqueteId + &quot;, estado=&quot; + estado + &quot;}&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

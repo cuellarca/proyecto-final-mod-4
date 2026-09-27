@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Geolocalizacion.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.shared</a> &gt; <span class="el_source">Geolocalizacion.java</span></div><h1>Geolocalizacion.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.shared;
+
+import java.util.Objects;
+
+/**
+ * Par de coordenadas (Value Object) compartido con la {@code DireccionDeEntrega}
+ * del BC de Suscripcion. Se define por su valor, es inmutable y sabe calcular la
+ * distancia geografica a otra coordenada (formula de Haversine).
+ */
+public record Geolocalizacion(double lat, double lon) {
+
+    private static final double RADIO_TIERRA_KM = 6371.0088;
+
+<span class="fc" id="L14">    public Geolocalizacion {</span>
+<span class="pc bpc" id="L15" title="1 of 4 branches missed.">        if (lat &lt; -90.0 || lat &gt; 90.0) {</span>
+<span class="fc" id="L16">            throw new DomainException(&quot;Latitud fuera de rango [-90, 90]: &quot; + lat);</span>
+        }
+<span class="pc bpc" id="L18" title="1 of 4 branches missed.">        if (lon &lt; -180.0 || lon &gt; 180.0) {</span>
+<span class="fc" id="L19">            throw new DomainException(&quot;Longitud fuera de rango [-180, 180]: &quot; + lon);</span>
+        }
+<span class="fc" id="L21">    }</span>
+
+    /** Distancia en kilometros a otra geolocalizacion por la formula de Haversine. */
+    public double distanciaHaversineKm(Geolocalizacion otra) {
+<span class="fc" id="L25">        Objects.requireNonNull(otra, &quot;La otra geolocalizacion no puede ser nula&quot;);</span>
+<span class="fc" id="L26">        double dLat = Math.toRadians(otra.lat - this.lat);</span>
+<span class="fc" id="L27">        double dLon = Math.toRadians(otra.lon - this.lon);</span>
+<span class="fc" id="L28">        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)</span>
+<span class="fc" id="L29">                + Math.cos(Math.toRadians(this.lat)) * Math.cos(Math.toRadians(otra.lat))</span>
+<span class="fc" id="L30">                * Math.sin(dLon / 2) * Math.sin(dLon / 2);</span>
+<span class="fc" id="L31">        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));</span>
+<span class="fc" id="L32">        return RADIO_TIERRA_KM * c;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -12,6 +12,7 @@ import com.nurtricenter.logisticdelivery.application.usecase.command.PlanificarR
 import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,7 @@ import java.util.UUID;
  *
  * <p>Reglas: {@code contract-testing-rules.md}.
  */
+@Tag("flujo-a")
 @PruebaDeIntegracion
 @Provider("ms-logistic-delivery")
 @PactFolder("../pacts")

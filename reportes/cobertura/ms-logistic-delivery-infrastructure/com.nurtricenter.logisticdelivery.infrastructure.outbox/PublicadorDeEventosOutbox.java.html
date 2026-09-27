@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PublicadorDeEventosOutbox.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.outbox</a> &gt; <span class="el_source">PublicadorDeEventosOutbox.java</span></div><h1>PublicadorDeEventosOutbox.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.outbox;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nurtricenter.logisticdelivery.application.port.out.PublicadorDeEventos;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaConfirmada;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaFallida;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaNoConcretada;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaReprogramada;
+import com.nurtricenter.logisticdelivery.domain.ruta.event.RutaDeEntregaPlanificada;
+import com.nurtricenter.logisticdelivery.domain.shared.DomainEvent;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Adaptador del puerto {@code PublicadorDeEventos}: escribe cada evento de dominio como una fila del
+ * Outbox (serializado a JSON con Jackson). Corre dentro de la transaccion del caso de uso, por lo que
+ * el evento se persiste atomicamente junto al agregado (Outbox transaccional manual).
+ */
+@Component
+public class PublicadorDeEventosOutbox implements PublicadorDeEventos {
+
+    private final OutboxJpaRepository outbox;
+    private final ObjectMapper objectMapper;
+
+<span class="fc" id="L28">    public PublicadorDeEventosOutbox(OutboxJpaRepository outbox, ObjectMapper objectMapper) {</span>
+<span class="fc" id="L29">        this.outbox = outbox;</span>
+<span class="fc" id="L30">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L31">    }</span>
+
+    @Override
+    public void publicar(List&lt;DomainEvent&gt; eventos) {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        for (DomainEvent evento : eventos) {</span>
+<span class="fc" id="L36">            OutboxJpaEntity fila = new OutboxJpaEntity(</span>
+<span class="fc" id="L37">                    UUID.randomUUID(),</span>
+<span class="fc" id="L38">                    tipoDe(evento),</span>
+<span class="fc" id="L39">                    aggregateIdDe(evento),</span>
+<span class="fc" id="L40">                    serializar(evento),</span>
+<span class="fc" id="L41">                    evento.occurredOn());</span>
+<span class="fc" id="L42">            outbox.save(fila);</span>
+<span class="fc" id="L43">        }</span>
+<span class="fc" id="L44">    }</span>
+
+    private String serializar(DomainEvent evento) {
+        try {
+<span class="fc" id="L48">            return objectMapper.writeValueAsString(evento);</span>
+<span class="fc" id="L49">        } catch (JsonProcessingException e) {</span>
+<span class="fc" id="L50">            throw new IllegalStateException(&quot;No se pudo serializar el evento &quot; + tipoDe(evento), e);</span>
+        }
+    }
+
+    /** Nombre estable del tipo de evento (published language). */
+    private String tipoDe(DomainEvent evento) {
+<span class="fc" id="L56">        return evento.getClass().getSimpleName();</span>
+    }
+
+    /** Identidad del agregado que emitio el evento, para trazabilidad y proyeccion (Fase 5). */
+    private String aggregateIdDe(DomainEvent evento) {
+<span class="pc bpc" id="L61" title="4 of 6 branches missed.">        return switch (evento) {</span>
+<span class="fc" id="L62">            case EntregaConfirmada e -&gt; e.entregaId().toString();</span>
+<span class="fc" id="L63">            case EntregaFallida e -&gt; e.entregaId().toString();</span>
+<span class="nc" id="L64">            case EntregaReprogramada e -&gt; e.entregaId().toString();</span>
+<span class="nc" id="L65">            case EntregaNoConcretada e -&gt; e.entregaId().toString();</span>
+<span class="nc" id="L66">            case RutaDeEntregaPlanificada e -&gt; e.rutaId().toString();</span>
+<span class="nc" id="L67">            default -&gt; null;</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

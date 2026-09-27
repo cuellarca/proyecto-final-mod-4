@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>EjecucionDeRuta.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-application</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.application.usecase.command</a> &gt; <span class="el_source">EjecucionDeRuta.java</span></div><h1>EjecucionDeRuta.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.application.usecase.command;
+
+import com.nurtricenter.logisticdelivery.application.EntidadNoEncontradaException;
+import com.nurtricenter.logisticdelivery.application.port.out.PublicadorDeEventos;
+import com.nurtricenter.logisticdelivery.domain.repository.RutaRepository;
+import com.nurtricenter.logisticdelivery.domain.ruta.RutaDeEntrega;
+import com.nurtricenter.logisticdelivery.domain.shared.ParadaId;
+import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Casos de uso de ejecucion de la ruta (HU-3): iniciar el recorrido y avanzar/completar/fallar sus
+ * paradas. Toda operacion pasa por la raiz {@code RutaDeEntrega} (limite del agregado) y persiste
+ * el cambio de estado en la misma transaccion.
+ */
+@Service
+public class EjecucionDeRuta {
+
+    private final RutaRepository rutaRepository;
+    private final PublicadorDeEventos publicador;
+
+<span class="fc" id="L23">    public EjecucionDeRuta(RutaRepository rutaRepository, PublicadorDeEventos publicador) {</span>
+<span class="fc" id="L24">        this.rutaRepository = rutaRepository;</span>
+<span class="fc" id="L25">        this.publicador = publicador;</span>
+<span class="fc" id="L26">    }</span>
+
+    @Transactional
+    public void iniciar(String rutaId) {
+<span class="fc" id="L30">        RutaDeEntrega ruta = cargar(rutaId);</span>
+<span class="fc" id="L31">        ruta.iniciar();</span>
+<span class="fc" id="L32">        persistir(ruta);</span>
+<span class="fc" id="L33">    }</span>
+
+    @Transactional
+    public void avanzarParada(String rutaId, String paradaId) {
+<span class="fc" id="L37">        RutaDeEntrega ruta = cargar(rutaId);</span>
+<span class="fc" id="L38">        ruta.avanzarParada(ParadaId.de(paradaId));</span>
+<span class="fc" id="L39">        persistir(ruta);</span>
+<span class="fc" id="L40">    }</span>
+
+    @Transactional
+    public void completarParada(String rutaId, String paradaId) {
+<span class="fc" id="L44">        RutaDeEntrega ruta = cargar(rutaId);</span>
+<span class="fc" id="L45">        ruta.completarParada(ParadaId.de(paradaId));</span>
+<span class="fc" id="L46">        persistir(ruta);</span>
+<span class="fc" id="L47">    }</span>
+
+    @Transactional
+    public void fallarParada(String rutaId, String paradaId) {
+<span class="nc" id="L51">        RutaDeEntrega ruta = cargar(rutaId);</span>
+<span class="nc" id="L52">        ruta.fallarParada(ParadaId.de(paradaId));</span>
+<span class="nc" id="L53">        persistir(ruta);</span>
+<span class="nc" id="L54">    }</span>
+
+    private RutaDeEntrega cargar(String rutaId) {
+<span class="fc" id="L57">        return rutaRepository.buscarPorId(RutaId.de(rutaId))</span>
+<span class="fc" id="L58">                .orElseThrow(() -&gt; new EntidadNoEncontradaException(&quot;Ruta no encontrada: &quot; + rutaId));</span>
+    }
+
+    private void persistir(RutaDeEntrega ruta) {
+<span class="fc" id="L62">        rutaRepository.guardar(ruta);</span>
+<span class="fc" id="L63">        publicador.publicar(ruta.pullDomainEvents());</span>
+<span class="fc" id="L64">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

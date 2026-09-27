@@ -136,6 +136,7 @@
                         <exclude>**/infrastructure/projection/entity/**</exclude>
                         <exclude>**/infrastructure/messaging/message/**</exclude>
                         <exclude>**/infrastructure/config/**</exclude>
+                        <exclude>**/messaging/RabbitTopologyConfig.class</exclude>
                         <exclude>**/outbox/OutboxJpaEntity.class</exclude>
                         <exclude>**/LogisticDeliveryApplication.class</exclude>
                     </excludes>

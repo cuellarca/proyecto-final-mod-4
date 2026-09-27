@@ -25,6 +25,15 @@
             <artifactId>ms-logistic-delivery-infrastructure</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Ya llegan por infrastructure; se declaran para que el reporte agregado de JaCoCo los incluya. -->
+        <dependency>
+            <groupId>com.nurtricenter</groupId>
+            <artifactId>ms-logistic-delivery-application</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.nurtricenter</groupId>
+            <artifactId>ms-logistic-delivery-domain</artifactId>
+        </dependency>
 
         <!-- /actuator/health: lo consulta el HEALTHCHECK del contenedor y el depends_on de compose. -->
         <dependency>
@@ -82,6 +91,21 @@
                     <execution>
                         <goals>
                             <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Reporte de cobertura unico de domain, application e infrastructure. Solo pruebas
+                 unitarias: se genera en la fase test, antes de failsafe. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>reporte-agregado</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
                         </goals>
                     </execution>
                 </executions>

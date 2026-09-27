@@ -45,7 +45,8 @@ constructor que ya usa el proyecto. Está prohibido inventar un seam que solo ex
 
 - Puertos de salida: `EntregaRepository`, `RutaRepository`, `PublicadorDeEventos`,
   `HistorialReadModel`, `Geocodificador`, `OptimizadorDeRutas`.
-- Repositorios Spring Data: `OutboxJpaRepository`, `HistorialJpaRepository`.
+- Repositorios Spring Data: `EntregaJpaRepository`, `RutaJpaRepository`, `OutboxJpaRepository`,
+  `HistorialJpaRepository`.
 - Infraestructura remota: `RabbitTemplate`, el proveedor externo de mapas, HTTP saliente.
 - El tiempo: siempre `Clock.fixed(...)`. Prohibido `Instant.now()` sin reloj inyectado dentro
   de una prueba.
@@ -107,6 +108,8 @@ constructor que ya usa el proyecto. Está prohibido inventar un seam que solo ex
   |---|---|---|
   | `domain` | ≥ 80 % | ≥ 70 % |
   | `application` | ≥ 80 % | ≥ 70 % |
-  | `infrastructure` | sin umbral en esta tarea: buena parte solo se ejerce con Postgres/Rabbit (pruebas `IT`) | — |
+  | `infrastructure` | ≥ 80 % | — |
 - Excluidas del cómputo por no tener comportamiento propio: `record` de DTO/vista, entidades JPA
   (solo getters/setters), clases `@Configuration` y la clase `main` de Spring Boot.
+- Reporte agregado de los tres módulos: `./scripts/verificar-pruebas.sh --publicar-reporte` lo
+  copia a `reportes/cobertura/` en la raíz del repositorio.

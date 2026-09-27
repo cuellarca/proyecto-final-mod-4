@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>RegistrarEntregaFallida.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-application</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.application.usecase.command</a> &gt; <span class="el_source">RegistrarEntregaFallida.java</span></div><h1>RegistrarEntregaFallida.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.application.usecase.command;
+
+import com.nurtricenter.logisticdelivery.application.EntidadNoEncontradaException;
+import com.nurtricenter.logisticdelivery.application.port.out.PublicadorDeEventos;
+import com.nurtricenter.logisticdelivery.domain.entrega.Entrega;
+import com.nurtricenter.logisticdelivery.domain.repository.EntregaRepository;
+import com.nurtricenter.logisticdelivery.domain.shared.EntregaId;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.Instant;
+
+/**
+ * Caso de uso HU-5: registra el fallo de una entrega con su motivo obligatorio y deja el evento
+ * {@code EntregaFallida} en el Outbox, en la misma transaccion.
+ */
+@Service
+public class RegistrarEntregaFallida {
+
+    private final EntregaRepository entregaRepository;
+    private final PublicadorDeEventos publicador;
+    private final Clock clock;
+
+<span class="fc" id="L25">    public RegistrarEntregaFallida(EntregaRepository entregaRepository, PublicadorDeEventos publicador, Clock clock) {</span>
+<span class="fc" id="L26">        this.entregaRepository = entregaRepository;</span>
+<span class="fc" id="L27">        this.publicador = publicador;</span>
+<span class="fc" id="L28">        this.clock = clock;</span>
+<span class="fc" id="L29">    }</span>
+
+    @Transactional
+    public void ejecutar(RegistrarEntregaFallidaCommand comando) {
+<span class="fc" id="L33">        Entrega entrega = entregaRepository.buscarPorId(EntregaId.de(comando.entregaId()))</span>
+<span class="pc" id="L34">                .orElseThrow(() -&gt; new EntidadNoEncontradaException(</span>
+<span class="nc" id="L35">                        &quot;Entrega no encontrada: &quot; + comando.entregaId()));</span>
+
+<span class="fc" id="L37">        entrega.registrarFallo(comando.motivo(), Instant.now(clock));</span>
+
+<span class="fc" id="L39">        entregaRepository.guardar(entrega);</span>
+<span class="fc" id="L40">        publicador.publicar(entrega.pullDomainEvents());</span>
+<span class="fc" id="L41">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

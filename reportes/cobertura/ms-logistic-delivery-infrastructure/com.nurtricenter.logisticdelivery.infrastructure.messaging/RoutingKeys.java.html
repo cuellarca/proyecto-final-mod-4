@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>RoutingKeys.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.messaging</a> &gt; <span class="el_source">RoutingKeys.java</span></div><h1>RoutingKeys.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.messaging;
+
+/**
+ * Mapeo del tipo de evento de dominio a su routing key de salida en el exchange topico. Cada tipo
+ * viaja con su propia key para que cada consumidor se suscriba solo a lo que le interesa.
+ */
+public final class RoutingKeys {
+
+    public static final String RUTA_PLANIFICADA = &quot;logistica.ruta-de-entrega-planificada&quot;;
+    public static final String ENTREGA_CONFIRMADA = &quot;logistica.entrega-confirmada&quot;;
+    public static final String ENTREGA_FALLIDA = &quot;logistica.entrega-fallida&quot;;
+    public static final String ENTREGA_REPROGRAMADA = &quot;logistica.entrega-reprogramada&quot;;
+    public static final String ENTREGA_NO_CONCRETADA = &quot;logistica.entrega-no-concretada&quot;;
+
+    private RoutingKeys() {
+    }
+
+    /** Routing key para un tipo de evento (nombre simple de la clase del evento de dominio). */
+    public static String paraTipo(String eventType) {
+<span class="fc bfc" id="L20" title="All 6 branches covered.">        return switch (eventType) {</span>
+<span class="fc" id="L21">            case &quot;RutaDeEntregaPlanificada&quot; -&gt; RUTA_PLANIFICADA;</span>
+<span class="fc" id="L22">            case &quot;EntregaConfirmada&quot; -&gt; ENTREGA_CONFIRMADA;</span>
+<span class="fc" id="L23">            case &quot;EntregaFallida&quot; -&gt; ENTREGA_FALLIDA;</span>
+<span class="fc" id="L24">            case &quot;EntregaReprogramada&quot; -&gt; ENTREGA_REPROGRAMADA;</span>
+<span class="fc" id="L25">            case &quot;EntregaNoConcretada&quot; -&gt; ENTREGA_NO_CONCRETADA;</span>
+<span class="fc" id="L26">            default -&gt; &quot;logistica.desconocido&quot;;</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

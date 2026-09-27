@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ConstanciaDeEntrega.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.entrega</a> &gt; <span class="el_source">ConstanciaDeEntrega.java</span></div><h1>ConstanciaDeEntrega.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.entrega;
+
+import com.nurtricenter.logisticdelivery.domain.shared.DomainException;
+import com.nurtricenter.logisticdelivery.domain.shared.Geolocalizacion;
+import com.nurtricenter.logisticdelivery.domain.shared.Url;
+
+import java.time.Instant;
+import java.util.Objects;
+
+/**
+ * Evidencia inmutable de una entrega exitosa (Value Object, HU-4).
+ * Se define por su contenido; una vez creada no cambia. El propio constructor
+ * garantiza su completitud: no puede existir una constancia invalida.
+ *
+ * @param timestamp       momento de la entrega
+ * @param geolocalizacion donde se entrego
+ * @param urlEvidencia    URL de la foto/firma en object storage
+ * @param nombreReceptor  quien recibio
+ */
+public record ConstanciaDeEntrega(
+        Instant timestamp,
+        Geolocalizacion geolocalizacion,
+        Url urlEvidencia,
+        String nombreReceptor) {
+
+<span class="fc" id="L26">    public ConstanciaDeEntrega {</span>
+<span class="fc" id="L27">        Objects.requireNonNull(timestamp, &quot;La constancia requiere timestamp (HU-4)&quot;);</span>
+<span class="fc" id="L28">        Objects.requireNonNull(geolocalizacion, &quot;La constancia requiere geolocalizacion (HU-4)&quot;);</span>
+<span class="fc" id="L29">        Objects.requireNonNull(urlEvidencia, &quot;La constancia requiere foto/firma (HU-4)&quot;);</span>
+<span class="pc bpc" id="L30" title="1 of 4 branches missed.">        if (nombreReceptor == null || nombreReceptor.isBlank()) {</span>
+<span class="fc" id="L31">            throw new DomainException(&quot;La constancia requiere el nombre del receptor (HU-4)&quot;);</span>
+        }
+<span class="fc" id="L33">    }</span>
+
+    /** Verifica la completitud de la evidencia (usada por la raiz antes de confirmar). */
+    public boolean estaCompleta() {
+<span class="pc bpc" id="L37" title="4 of 8 branches missed.">        return timestamp != null</span>
+                &amp;&amp; geolocalizacion != null
+                &amp;&amp; urlEvidencia != null
+                &amp;&amp; nombreReceptor != null
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">                &amp;&amp; !nombreReceptor.isBlank();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

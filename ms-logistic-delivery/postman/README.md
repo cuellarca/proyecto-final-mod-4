@@ -1,7 +1,7 @@
 # Colección Postman — ms-logistic-delivery
 
-`ms-logistic-delivery.postman_collection.json` — colección (schema v2.1) con los 14 endpoints del
-flujo HU-1…HU-6 y 6 casos de error.
+`ms-logistic-delivery.postman_collection.json` — colección (schema v2.1) con las HU-1…HU-6
+agrupadas en dos flujos (entrega exitosa y entrega no concretada) y 6 casos de error.
 
 Es un único fichero: las variables (`baseUrl`, `fecha`, `pacienteId`, los ids que se encadenan…)
 viven dentro de la colección, así que se importa y funciona contra `localhost:8080` sin configurar
@@ -21,21 +21,17 @@ nada. Para apuntar a otro despliegue, editar `baseUrl` en la pestaña **Variable
 3. Ejecutar la colección completa con el **Collection Runner**, o petición por petición **de arriba
    abajo**: cada respuesta alimenta las variables de las siguientes.
 
-## El flujo
+## Los flujos
 
-Las peticiones van numeradas porque el orden importa: reproducen la misma jornada que `demo/demo.sh`.
+Las peticiones van numeradas porque el orden importa. Las carpetas se ejecutan de arriba abajo:
+el flujo B continúa sobre la ruta que planifica el flujo A.
 
-| # | Petición | HU |
+| Carpeta | Peticiones | HU |
 |---|---|---|
-| 00.1 | Health | — |
-| 01 | Geocodificar una dirección | HU-2 |
-| 02 | Planificar la ruta del día | HU-1/2/3 |
-| 03 | Rutas del repartidor | HU-1 |
-| 04–08 | Iniciar la ruta, avanzar/completar la parada 1, avanzar/fallar la parada 2 | HU-3 |
-| 09 | Confirmar la entrega 1 con su constancia | HU-4 |
-| 10–11 | Registrar el fallo de la entrega 2 y reintentarla | HU-5 |
-| 12–14 | Historial del paciente (con y sin filtro de fechas) y constancia | HU-6 |
-| E1–E6 | Casos de error `application/problem+json` | — |
+| 00 · Salud | Health | — |
+| Flujo A · Entrega exitosa | 01 geocodificar · 02 planificar la ruta (2 paquetes) · 03 rutas del repartidor · 04–06 iniciar la ruta, avanzar y completar la parada 1 · 09 confirmar la entrega 1 con constancia · 12–14 historial y constancia | HU-1…HU-4, HU-6 |
+| Flujo B · Entrega no concretada | 07–08 avanzar y fallar la parada 2 · 10–11.4 fallo y reintento de la entrega 2 hasta agotar los intentos · 15 historial del paciente 2 con la entrega NO_CONCRETADA | HU-3, HU-5, HU-6 |
+| Errores | E1–E6, casos de error `application/problem+json` | — |
 
 Estado final de la corrida: parada 1 COMPLETADA + parada 2 FALLIDA ⇒ ruta FINALIZADA, que es
 justo lo que comprueba el caso `E5 · Iniciar una ruta ya finalizada → 422`.
@@ -59,8 +55,10 @@ justo lo que comprueba el caso `E5 · Iniciar una ruta ya finalizada → 422`.
 - **Un repartidor nuevo por ejecución.** La petición 02 genera `rep-postman-<timestamp>`, de modo
   que la colección se puede correr las veces que haga falta sin mezclar rutas de corridas previas.
 - **Consistencia eventual en HU-6.** El read model se alimenta de los eventos que el publicador del
-  Outbox drena cada `OUTBOX_POLL_DELAY_MS` (2 s por defecto). Las peticiones 12 y 14 esperan y
+  Outbox drena cada `OUTBOX_POLL_DELAY_MS` (2 s por defecto). Las peticiones 12, 14 y 15 esperan y
   reintentan hasta 5 veces antes de dar la proyección por fallida.
+- **Reintentos del flujo B.** Con `REINTENTOS_MAXIMO=2` (valor por defecto) la entrega se reprograma
+  dos veces y el tercer reintento la da por no concretada.
 - **Tests incluidos.** Cada petición verifica el código de estado y el contrato de la respuesta;
   el Runner debe terminar sin fallos con el stack recién levantado.
 

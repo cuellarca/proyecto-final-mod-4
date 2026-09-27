@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ConsultarHistorialDeEntregasPorPaciente.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-application</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.application.usecase.query</a> &gt; <span class="el_source">ConsultarHistorialDeEntregasPorPaciente.java</span></div><h1>ConsultarHistorialDeEntregasPorPaciente.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.application.usecase.query;
+
+import com.nurtricenter.logisticdelivery.application.port.out.HistorialReadModel;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+
+/**
+ * Query CQRS (HU-6): historial de entregas de un paciente en un rango de fechas, leido del read model.
+ */
+@Service
+public class ConsultarHistorialDeEntregasPorPaciente {
+
+<span class="fc" id="L17">    private static final Instant INICIO_ABIERTO = Instant.EPOCH;</span>
+<span class="fc" id="L18">    private static final Instant FIN_ABIERTO = Instant.parse(&quot;2999-12-31T23:59:59Z&quot;);</span>
+
+    private final HistorialReadModel readModel;
+
+<span class="fc" id="L22">    public ConsultarHistorialDeEntregasPorPaciente(HistorialReadModel readModel) {</span>
+<span class="fc" id="L23">        this.readModel = readModel;</span>
+<span class="fc" id="L24">    }</span>
+
+    public List&lt;HistorialEntregaView&gt; ejecutar(String pacienteId, LocalDate desde, LocalDate hasta) {
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        Instant inicio = desde != null ? desde.atStartOfDay(ZoneOffset.UTC).toInstant() : INICIO_ABIERTO;</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        Instant fin = hasta != null ? hasta.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant() : FIN_ABIERTO;</span>
+<span class="fc" id="L29">        return readModel.historialDePaciente(pacienteId, inicio, fin);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

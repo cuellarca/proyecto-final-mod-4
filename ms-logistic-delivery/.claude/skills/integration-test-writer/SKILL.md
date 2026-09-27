@@ -34,6 +34,7 @@ el Outbox contra RabbitMQ, el proyector contra el read model o el ACL del provee
    un contexto y un par de contenedores más.
 6. **Escribí la prueba** en `bootstrap/src/test/java/...`, respetando NOMBRES: clase `<Escenario>IT`
    y `@DisplayName` que empiece con `"HU-n · flujo correcto:"` o `"HU-n · flujo incorrecto:"`.
+   Si recorre un flujo de la tabla FLUJOS, etiquetala con su `@Tag` (`flujo-a`, `flujo-b`).
 7. **Afirmá sobre lo que cruzó la frontera** (I3): la fila en PostGIS, el mensaje en la cola, el
    `status` + `problem+json`. Lo asincrónico se espera con Awaitility y timeout explícito (I5).
 8. **Citá la regla de cada aserción.** En el reporte final, una línea por prueba nueva:

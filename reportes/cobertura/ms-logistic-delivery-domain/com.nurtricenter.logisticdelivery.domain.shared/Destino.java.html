@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Destino.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.shared</a> &gt; <span class="el_source">Destino.java</span></div><h1>Destino.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.shared;
+
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Lugar de entrega descrito por texto y, opcionalmente, sus coordenadas (Value Object).
+ * Es la entrada del {@code Geocodificador}: puede empezar sin geolocalizacion y
+ * enriquecerse una vez resuelta (HU-2).
+ */
+public record Destino(String texto, Geolocalizacion geolocalizacion) {
+
+<span class="fc" id="L13">    public Destino {</span>
+<span class="fc" id="L14">        Objects.requireNonNull(texto, &quot;El destino requiere un texto&quot;);</span>
+<span class="fc bfc" id="L15" title="All 2 branches covered.">        if (texto.isBlank()) {</span>
+<span class="fc" id="L16">            throw new DomainException(&quot;El destino no puede estar vacio&quot;);</span>
+        }
+<span class="fc" id="L18">    }</span>
+
+    /** Destino aun sin geocodificar (pendiente de resolver a coordenadas). */
+    public static Destino sinGeocodificar(String texto) {
+<span class="fc" id="L22">        return new Destino(texto, null);</span>
+    }
+
+    /** Destino con coordenadas ya resueltas. */
+    public static Destino geocodificado(String texto, Geolocalizacion geo) {
+<span class="fc" id="L27">        return new Destino(texto, Objects.requireNonNull(geo, &quot;Geolocalizacion requerida&quot;));</span>
+    }
+
+    public boolean estaGeocodificado() {
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        return geolocalizacion != null;</span>
+    }
+
+    public Optional&lt;Geolocalizacion&gt; geo() {
+<span class="fc" id="L35">        return Optional.ofNullable(geolocalizacion);</span>
+    }
+
+    /** Devuelve una copia del destino ya geocodificado (inmutabilidad del VO). */
+    public Destino conGeolocalizacion(Geolocalizacion geo) {
+<span class="fc" id="L40">        return new Destino(texto, Objects.requireNonNull(geo, &quot;Geolocalizacion requerida&quot;));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

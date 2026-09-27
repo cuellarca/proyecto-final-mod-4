@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8f3c1d20-6a4e-4f2b-9b71-0d51e2a7c001",
     "name": "ms-logistic-delivery — API v1",
-    "description": "Colección de la API REST de **ms-logistic-delivery** (NurtriCenter, módulo 4).\n\nCubre las HU-1 a HU-6 en el mismo orden que `demo/demo.sh`: geocodificación (OHS), planificación y ejecución de la ruta del día, confirmación/fallo/reintento de entregas y las consultas del read model (CQRS), más los casos de error `application/problem+json` (RFC 7807).\n\n## Cómo usarla\n\n1. Levantar el stack: `docker compose up -d --build` (ver README del microservicio).\n2. Importar esta colección: no hace falta ningún entorno, trae todas sus variables dentro (pestaña **Variables**).\n3. Ejecutarla de arriba abajo con el **Collection Runner** (o petición por petición): cada respuesta alimenta las variables de las siguientes (`rutaId`, `entregaId1`, `entregaId2`, `paradaId1`, `paradaId2`).\n\nTodas las peticiones traen tests que verifican el código de estado y el contrato de la respuesta.\n\n## Variables\n\nViven en la propia colección (pestaña **Variables**), así que se importa y funciona. Para apuntar a otro despliegue basta con editar `baseUrl` ahí mismo.\n\n| Variable | Uso |\n|---|---|\n| `baseUrl` | Raíz del servicio (`http://localhost:8080`) |\n| `repartidorId` | Se regenera en cada ejecución de «Planificar la ruta del día» |\n| `fecha` | Fecha de la ruta (ISO `yyyy-MM-dd`) |\n| `pacienteId` / `paqueteId1` / `paqueteId2` | Datos de la carga a planificar |\n| `rutaId`, `entregaId1`, `entregaId2`, `paradaId1`, `paradaId2` | Se capturan automáticamente de las respuestas |\n\n> La proyección del read model (HU-6) se alimenta por eventos vía Outbox → RabbitMQ, así que las consultas esperan y reintentan hasta que la proyección aterriza.",
+    "description": "Colección de la API REST de **ms-logistic-delivery** (NurtriCenter, módulo 4).\n\nCubre las HU-1 a HU-6 agrupadas en dos flujos: **Flujo A · Entrega exitosa** (planificar, recorrer, confirmar con constancia y consultar el historial) y **Flujo B · Entrega no concretada** (fallar la parada, reintentar hasta agotar los intentos y consultar el historial), más los casos de error `application/problem+json` (RFC 7807).\n\n## Cómo usarla\n\n1. Levantar el stack: `docker compose up -d --build` (ver README del microservicio).\n2. Importar esta colección: no hace falta ningún entorno, trae todas sus variables dentro (pestaña **Variables**).\n3. Ejecutarla de arriba abajo con el **Collection Runner** (o petición por petición): cada respuesta alimenta las variables de las siguientes (`rutaId`, `entregaId1`, `entregaId2`, `paradaId1`, `paradaId2`).\n\nTodas las peticiones traen tests que verifican el código de estado y el contrato de la respuesta.\n\n## Variables\n\nViven en la propia colección (pestaña **Variables**), así que se importa y funciona. Para apuntar a otro despliegue basta con editar `baseUrl` ahí mismo.\n\n| Variable | Uso |\n|---|---|\n| `baseUrl` | Raíz del servicio (`http://localhost:8080`) |\n| `repartidorId` | Se regenera en cada ejecución de «Planificar la ruta del día» |\n| `fecha` | Fecha de la ruta (ISO `yyyy-MM-dd`) |\n| `pacienteId` / `paqueteId1` / `paqueteId2` | Datos de la carga a planificar |\n| `rutaId`, `entregaId1`, `entregaId2`, `paradaId1`, `paradaId2` | Se capturan automáticamente de las respuestas |\n\n> La proyección del read model (HU-6) se alimenta por eventos vía Outbox → RabbitMQ, así que las consultas esperan y reintentan hasta que la proyección aterriza.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -31,8 +31,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/actuator/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["actuator", "health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
             },
             "description": "Comprueba que la app, Postgres/PostGIS y RabbitMQ están arriba (`show-details: always`)."
           },
@@ -41,8 +46,8 @@
       ]
     },
     {
-      "name": "HU-2 · Geocodificación (OHS)",
-      "description": "Open Host Service que el contexto de Suscripción consume para resolver una dirección a coordenadas.",
+      "name": "Flujo A · Entrega exitosa",
+      "description": "La entrega 1 se planifica, se recorre, se confirma con constancia y queda en el historial del paciente.\n\nEn este flujo se planifica la ruta del día con los dos paquetes: el 1 es el de este flujo y el 2 el del flujo B.",
       "item": [
         {
           "name": "01 · Geocodificar una dirección",
@@ -72,28 +77,35 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"direccion\": \"Av. Banzer 3er anillo, Santa Cruz\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/geocoding",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "geocoding"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "geocoding"
+              ]
             },
             "description": "`POST /api/v1/geocoding` — resuelve una dirección a `{lat, lon}` a través del ACL del proveedor de mapas (stub configurable con `MAPS_STUB_LATENCY_MS` y `MAPS_STUB_FAILURE_RATE`)."
           },
           "response": []
-        }
-      ]
-    },
-    {
-      "name": "HU-1 / HU-3 · Ruta del día",
-      "description": "Planificación (con optimización por cercanía) y ejecución de la hoja de ruta del repartidor.",
-      "item": [
+        },
         {
           "name": "02 · Planificar la ruta del día",
           "event": [
@@ -141,17 +153,30 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"repartidorId\": \"{{repartidorId}}\",\n  \"fecha\": \"{{fecha}}\",\n  \"origenLat\": -17.78,\n  \"origenLon\": -63.18,\n  \"paquetes\": [\n    {\n      \"paqueteId\": \"{{paqueteId1}}\",\n      \"pacienteId\": \"{{pacienteId}}\",\n      \"lat\": -17.7833,\n      \"lon\": -63.1821\n    },\n    {\n      \"paqueteId\": \"{{paqueteId2}}\",\n      \"pacienteId\": \"{{pacienteId2}}\",\n      \"lat\": -17.79,\n      \"lon\": -63.19\n    }\n  ]\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/rutas",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas"
+              ]
             },
             "description": "`POST /api/v1/rutas` — recibe los paquetes del día ya geolocalizados, optimiza la secuencia de paradas y programa una entrega por paquete.\n\nGuarda en variables `rutaId`, `entregaId1` y `entregaId2` para el resto de la colección."
           },
@@ -205,10 +230,22 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repartidores/{{repartidorId}}/rutas?fecha={{fecha}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "repartidores", "{{repartidorId}}", "rutas"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repartidores",
+                "{{repartidorId}}",
+                "rutas"
+              ],
               "query": [
-                { "key": "fecha", "value": "{{fecha}}", "description": "Fecha de la jornada, ISO yyyy-MM-dd (obligatoria)" }
+                {
+                  "key": "fecha",
+                  "value": "{{fecha}}",
+                  "description": "Fecha de la jornada, ISO yyyy-MM-dd (obligatoria)"
+                }
               ]
             },
             "description": "`GET /api/v1/repartidores/{repartidorId}/rutas?fecha=` — hoja de ruta del repartidor con sus paradas ordenadas.\n\nCaptura `paradaId1` y `paradaId2` correlacionando por `paqueteId`."
@@ -236,8 +273,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/inicio",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas", "{{rutaId}}", "inicio"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas",
+                "{{rutaId}}",
+                "inicio"
+              ]
             },
             "description": "`POST /api/v1/rutas/{rutaId}/inicio` — transición PLANIFICADA → EN_CURSO. Es requisito para operar cualquier parada."
           },
@@ -261,8 +306,18 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId1}}/avance",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId1}}", "avance"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas",
+                "{{rutaId}}",
+                "paradas",
+                "{{paradaId1}}",
+                "avance"
+              ]
             },
             "description": "`POST /api/v1/rutas/{rutaId}/paradas/{paradaId}/avance` — llegada del repartidor a la parada (PENDIENTE → EN_CURSO)."
           },
@@ -286,69 +341,23 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId1}}/completar",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId1}}", "completar"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas",
+                "{{rutaId}}",
+                "paradas",
+                "{{paradaId1}}",
+                "completar"
+              ]
             },
             "description": "`POST .../paradas/{paradaId}/completar` — la parada queda COMPLETADA (EN_CURSO → COMPLETADA). Cuando todas las paradas son terminales, la ruta pasa a FINALIZADA."
           },
           "response": []
         },
-        {
-          "name": "07 · Avanzar a la parada 2",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId2}}/avance",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId2}}", "avance"]
-            },
-            "description": "Llegada a la segunda parada, la que terminará fallando (HU-5)."
-          },
-          "response": []
-        },
-        {
-          "name": "08 · Fallar la parada 2",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId2}}/fallo",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas", "{{rutaId}}", "paradas", "{{paradaId2}}", "fallo"]
-            },
-            "description": "`POST .../paradas/{paradaId}/fallo` — la parada queda FALLIDA. Con las dos paradas ya terminales, la ruta pasa a FINALIZADA (lo comprueba el caso de error 422 del último folder)."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "HU-4 / HU-5 · Entregas",
-      "description": "Confirmación con constancia (HU-4) y fallo + reintento según la política (HU-5).",
-      "item": [
         {
           "name": "09 · Confirmar la entrega 1 (con constancia)",
           "event": [
@@ -365,85 +374,37 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"lat\": -17.7833,\n  \"lon\": -63.1821,\n  \"urlEvidencia\": \"https://storage.example.com/evidencia/pkg-1.jpg\",\n  \"nombreReceptor\": \"Maria Perez\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId1}}/confirmacion",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "{{entregaId1}}", "confirmacion"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId1}}",
+                "confirmacion"
+              ]
             },
             "description": "`POST /api/v1/entregas/{entregaId}/confirmacion` — cierra la entrega con su constancia (coordenadas + evidencia + receptor). Los cuatro campos son obligatorios."
           },
           "response": []
         },
-        {
-          "name": "10 · Registrar el fallo de la entrega 2",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"motivo\": \"AUSENTE\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "{{entregaId2}}", "fallo"]
-            },
-            "description": "`POST /api/v1/entregas/{entregaId}/fallo` — el motivo es obligatorio y debe ser uno de: `AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`."
-          },
-          "response": []
-        },
-        {
-          "name": "11 · Reintentar la entrega 2",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/reintento",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "{{entregaId2}}", "reintento"]
-            },
-            "description": "`POST /api/v1/entregas/{entregaId}/reintento` — aplica la política de reintento: si queda saldo de intentos la reprograma (`EntregaReprogramada`), si no la marca no concretada (`EntregaNoConcretada`). El máximo se configura con `REINTENTOS_MAXIMO` (2 por defecto)."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "HU-6 · Consultas (read model)",
-      "description": "Lado de lectura del CQRS. La proyección se alimenta de los eventos del Outbox, así que estas peticiones esperan y reintentan hasta que aterriza.",
-      "item": [
         {
           "name": "12 · Historial de entregas del paciente",
           "event": [
@@ -500,8 +461,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pacientes/{{pacienteId}}/entregas",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pacientes", "{{pacienteId}}", "entregas"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pacientes",
+                "{{pacienteId}}",
+                "entregas"
+              ]
             },
             "description": "`GET /api/v1/pacientes/{pacienteId}/entregas` — respaldo de entregas del paciente, servido desde el read model."
           },
@@ -528,11 +497,27 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/pacientes/{{pacienteId}}/entregas?desde={{fechaDesde}}&hasta={{fechaHasta}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "pacientes", "{{pacienteId}}", "entregas"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pacientes",
+                "{{pacienteId}}",
+                "entregas"
+              ],
               "query": [
-                { "key": "desde", "value": "{{fechaDesde}}", "description": "Opcional. Límite inferior, ISO yyyy-MM-dd" },
-                { "key": "hasta", "value": "{{fechaHasta}}", "description": "Opcional. Límite superior, ISO yyyy-MM-dd" }
+                {
+                  "key": "desde",
+                  "value": "{{fechaDesde}}",
+                  "description": "Opcional. Límite inferior, ISO yyyy-MM-dd"
+                },
+                {
+                  "key": "hasta",
+                  "value": "{{fechaHasta}}",
+                  "description": "Opcional. Límite superior, ISO yyyy-MM-dd"
+                }
               ]
             },
             "description": "Mismo endpoint con los filtros opcionales `desde` y `hasta` (ambos ISO `yyyy-MM-dd`)."
@@ -590,10 +575,401 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId1}}/constancia",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "{{entregaId1}}", "constancia"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId1}}",
+                "constancia"
+              ]
             },
             "description": "`GET /api/v1/entregas/{entregaId}/constancia` — evidencia (foto/firma), receptor, coordenadas e instante de la entrega. Devuelve 404 si la entrega no tiene constancia."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Flujo B · Entrega no concretada",
+      "description": "Sobre la misma ruta del flujo A: la parada 2 falla, la entrega 2 se reintenta hasta agotar los intentos (`REINTENTOS_MAXIMO`, 2 por defecto) y queda no concretada en el historial del paciente 2.\n\nSe ejecuta después del flujo A.",
+      "item": [
+        {
+          "name": "07 · Avanzar a la parada 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId2}}/avance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas",
+                "{{rutaId}}",
+                "paradas",
+                "{{paradaId2}}",
+                "avance"
+              ]
+            },
+            "description": "Llegada a la segunda parada, la que terminará fallando (HU-5)."
+          },
+          "response": []
+        },
+        {
+          "name": "08 · Fallar la parada 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/paradas/{{paradaId2}}/fallo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas",
+                "{{rutaId}}",
+                "paradas",
+                "{{paradaId2}}",
+                "fallo"
+              ]
+            },
+            "description": "`POST .../paradas/{paradaId}/fallo` — la parada queda FALLIDA. Con las dos paradas ya terminales, la ruta pasa a FINALIZADA (lo comprueba el caso de error 422 del último folder)."
+          },
+          "response": []
+        },
+        {
+          "name": "10 · Registrar el fallo de la entrega 2 (1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"AUSENTE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "fallo"
+              ]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/fallo` — el motivo es obligatorio y debe ser uno de: `AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`."
+          },
+          "response": []
+        },
+        {
+          "name": "11 · Reintentar la entrega 2 (1): reprogramada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/reintento",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "reintento"
+              ]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/reintento` — aplica la política de reintento: si queda saldo de intentos la reprograma (`EntregaReprogramada`), si no la marca no concretada (`EntregaNoConcretada`). El máximo se configura con `REINTENTOS_MAXIMO` (2 por defecto)."
+          },
+          "response": []
+        },
+        {
+          "name": "11.1 · Registrar el fallo de la entrega 2 (2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"AUSENTE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "fallo"
+              ]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/fallo` — el motivo es obligatorio y debe ser uno de: `AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`."
+          },
+          "response": []
+        },
+        {
+          "name": "11.2 · Reintentar la entrega 2 (2): reprogramada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/reintento",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "reintento"
+              ]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/reintento` — aplica la política de reintento: si queda saldo de intentos la reprograma (`EntregaReprogramada`), si no la marca no concretada (`EntregaNoConcretada`). El máximo se configura con `REINTENTOS_MAXIMO` (2 por defecto)."
+          },
+          "response": []
+        },
+        {
+          "name": "11.3 · Registrar el fallo de la entrega 2 (3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"AUSENTE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "fallo"
+              ]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/fallo` — el motivo es obligatorio y debe ser uno de: `AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`."
+          },
+          "response": []
+        },
+        {
+          "name": "11.4 · Reintentar la entrega 2 (3): no concretada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/reintento",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "reintento"
+              ]
+            },
+            "description": "`POST /api/v1/entregas/{entregaId}/reintento` — aplica la política de reintento: si queda saldo de intentos la reprograma (`EntregaReprogramada`), si no la marca no concretada (`EntregaNoConcretada`). El máximo se configura con `REINTENTOS_MAXIMO` (2 por defecto)."
+          },
+          "response": []
+        },
+        {
+          "name": "15 · Historial del paciente 2: entrega no concretada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// El publicador del Outbox drena cada OUTBOX_POLL_DELAY_MS (2 s por defecto):",
+                  "// se le da margen a la proyección antes de consultar el read model.",
+                  "setTimeout(() => {}, 3000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "",
+                  "const historial = pm.response.json();",
+                  "const entregaId2 = pm.collectionVariables.get('entregaId2');",
+                  "const fila = Array.isArray(historial) ? historial.find(e => e.entregaId === entregaId2) : undefined;",
+                  "const proyectada = !!fila && fila.estado === 'NO_CONCRETADA';",
+                  "",
+                  "const intentos = Number(pm.collectionVariables.get('_intentosHistorial') || 0);",
+                  "if (!proyectada && intentos < 5) {",
+                  "    pm.collectionVariables.set('_intentosHistorial', intentos + 1);",
+                  "    console.log('Proyección aún no disponible; reintento ' + (intentos + 1) + '/5');",
+                  "    postman.setNextRequest('15 · Historial del paciente 2: entrega no concretada');",
+                  "} else {",
+                  "    pm.collectionVariables.set('_intentosHistorial', 0);",
+                  "",
+                  "    pm.test('La entrega 2 figura NO_CONCRETADA en el historial del paciente', () => {",
+                  "        pm.expect(fila, 'entrega ' + entregaId2 + ' en el historial').to.exist;",
+                  "        pm.expect(fila.estado).to.eql('NO_CONCRETADA');",
+                  "    });",
+                  "",
+                  "    pm.test('Registra el motivo del último fallo', () => {",
+                  "        pm.expect(fila.motivoFallo).to.eql('AUSENTE');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/pacientes/{{pacienteId2}}/entregas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "pacientes",
+                "{{pacienteId2}}",
+                "entregas"
+              ]
+            },
+            "description": "`GET /api/v1/pacientes/{pacienteId}/entregas` — el historial del paciente 2 muestra la entrega como no concretada, con el motivo del último fallo."
           },
           "response": []
         }
@@ -623,17 +999,30 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/rutas",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas"
+              ]
             },
             "description": "Faltan todos los campos obligatorios: la validación de Bean Validation lo rechaza antes de llegar al caso de uso."
           },
@@ -660,8 +1049,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/entregas/no-es-un-uuid/reintento",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "no-es-un-uuid", "reintento"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "no-es-un-uuid",
+                "reintento"
+              ]
             },
             "description": "`entregaId` no es un UUID: el value object lo rechaza y el handler lo traduce a 400."
           },
@@ -688,17 +1085,32 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"lat\": -17.78,\n  \"lon\": -63.18,\n  \"urlEvidencia\": \"https://storage.example.com/evidencia/inexistente.jpg\",\n  \"nombreReceptor\": \"Nadie\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/entregas/00000000-0000-0000-0000-000000000000/confirmacion",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "00000000-0000-0000-0000-000000000000", "confirmacion"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "00000000-0000-0000-0000-000000000000",
+                "confirmacion"
+              ]
             },
             "description": "UUID bien formado pero sin agregado detrás."
           },
@@ -725,8 +1137,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/constancia",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "{{entregaId2}}", "constancia"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "constancia"
+              ]
             },
             "description": "La entrega 2 falló, así que nunca generó constancia: no hay evidencia que devolver."
           },
@@ -755,8 +1175,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/rutas/{{rutaId}}/inicio",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "rutas", "{{rutaId}}", "inicio"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rutas",
+                "{{rutaId}}",
+                "inicio"
+              ]
             },
             "description": "Tras completar y fallar sus dos paradas la ruta quedó FINALIZADA: solo una ruta PLANIFICADA puede iniciarse. La invariante del dominio se traduce a 422."
           },
@@ -778,17 +1206,32 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"motivo\": \"SE_LO_COMIO_EL_PERRO\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/entregas/{{entregaId2}}/fallo",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "entregas", "{{entregaId2}}", "fallo"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "entregas",
+                "{{entregaId2}}",
+                "fallo"
+              ]
             },
             "description": "`motivo` está fuera del enumerado `MotivoFallo` (`AUSENTE`, `DIRECCION_ERRONEA`, `RECHAZADA`, `OTRO`): la deserialización falla y devuelve 400."
           },
@@ -798,21 +1241,85 @@
     }
   ],
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
-    { "key": "repartidorId", "value": "rep-postman-1", "type": "string" },
-    { "key": "fecha", "value": "2026-07-10", "type": "string" },
-    { "key": "fechaDesde", "value": "2026-01-01", "type": "string" },
-    { "key": "fechaHasta", "value": "2026-12-31", "type": "string" },
-    { "key": "pacienteId", "value": "pac-1", "type": "string" },
-    { "key": "pacienteId2", "value": "pac-2", "type": "string" },
-    { "key": "paqueteId1", "value": "pkg-1", "type": "string" },
-    { "key": "paqueteId2", "value": "pkg-2", "type": "string" },
-    { "key": "rutaId", "value": "", "type": "string" },
-    { "key": "entregaId1", "value": "", "type": "string" },
-    { "key": "entregaId2", "value": "", "type": "string" },
-    { "key": "paradaId1", "value": "", "type": "string" },
-    { "key": "paradaId2", "value": "", "type": "string" },
-    { "key": "_intentosHistorial", "value": "0", "type": "string" },
-    { "key": "_intentosConstancia", "value": "0", "type": "string" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "repartidorId",
+      "value": "rep-postman-1",
+      "type": "string"
+    },
+    {
+      "key": "fecha",
+      "value": "2026-07-10",
+      "type": "string"
+    },
+    {
+      "key": "fechaDesde",
+      "value": "2026-01-01",
+      "type": "string"
+    },
+    {
+      "key": "fechaHasta",
+      "value": "2026-12-31",
+      "type": "string"
+    },
+    {
+      "key": "pacienteId",
+      "value": "pac-1",
+      "type": "string"
+    },
+    {
+      "key": "pacienteId2",
+      "value": "pac-2",
+      "type": "string"
+    },
+    {
+      "key": "paqueteId1",
+      "value": "pkg-1",
+      "type": "string"
+    },
+    {
+      "key": "paqueteId2",
+      "value": "pkg-2",
+      "type": "string"
+    },
+    {
+      "key": "rutaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "entregaId1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "entregaId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paradaId1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paradaId2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "_intentosHistorial",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "_intentosConstancia",
+      "value": "0",
+      "type": "string"
+    }
   ]
 }

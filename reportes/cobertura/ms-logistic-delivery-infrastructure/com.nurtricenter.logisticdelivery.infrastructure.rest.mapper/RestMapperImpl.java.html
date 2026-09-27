@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>RestMapperImpl.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.rest.mapper</a> &gt; <span class="el_source">RestMapperImpl.java</span></div><h1>RestMapperImpl.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.rest.mapper;
+
+import com.nurtricenter.logisticdelivery.application.usecase.command.ConfirmarEntregaCommand;
+import com.nurtricenter.logisticdelivery.application.usecase.command.PlanificarRutaDelDiaCommand;
+import com.nurtricenter.logisticdelivery.application.usecase.command.PlanificarRutaResultado;
+import com.nurtricenter.logisticdelivery.application.usecase.command.RegistrarEntregaFallidaCommand;
+import com.nurtricenter.logisticdelivery.domain.entrega.MotivoFallo;
+import com.nurtricenter.logisticdelivery.infrastructure.rest.dto.ConfirmarEntregaRequest;
+import com.nurtricenter.logisticdelivery.infrastructure.rest.dto.PlanificarRutaRequest;
+import com.nurtricenter.logisticdelivery.infrastructure.rest.dto.RegistrarFalloRequest;
+import com.nurtricenter.logisticdelivery.infrastructure.rest.dto.RutaPlanificadaResponse;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import javax.annotation.processing.Generated;
+import org.springframework.stereotype.Component;
+
+@Generated(
+    value = &quot;org.mapstruct.ap.MappingProcessor&quot;,
+    date = &quot;2026-09-27T15:47:48-0400&quot;,
+    comments = &quot;version: 1.6.3, compiler: javac, environment: Java 21.0.10 (Eclipse Adoptium)&quot;
+)
+@Component
+<span class="fc" id="L24">public class RestMapperImpl implements RestMapper {</span>
+
+    @Override
+    public PlanificarRutaDelDiaCommand toCommand(PlanificarRutaRequest request) {
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">        if ( request == null ) {</span>
+<span class="nc" id="L29">            return null;</span>
+        }
+
+<span class="fc" id="L32">        String repartidorId = null;</span>
+<span class="fc" id="L33">        LocalDate fecha = null;</span>
+<span class="fc" id="L34">        double origenLat = 0.0d;</span>
+<span class="fc" id="L35">        double origenLon = 0.0d;</span>
+<span class="fc" id="L36">        List&lt;PlanificarRutaDelDiaCommand.Paquete&gt; paquetes = null;</span>
+
+<span class="fc" id="L38">        repartidorId = request.repartidorId();</span>
+<span class="fc" id="L39">        fecha = request.fecha();</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        if ( request.origenLat() != null ) {</span>
+<span class="fc" id="L41">            origenLat = request.origenLat();</span>
+        }
+<span class="pc bpc" id="L43" title="1 of 2 branches missed.">        if ( request.origenLon() != null ) {</span>
+<span class="fc" id="L44">            origenLon = request.origenLon();</span>
+        }
+<span class="fc" id="L46">        paquetes = paqueteRequestListToPaqueteList( request.paquetes() );</span>
+
+<span class="fc" id="L48">        PlanificarRutaDelDiaCommand planificarRutaDelDiaCommand = new PlanificarRutaDelDiaCommand( repartidorId, fecha, origenLat, origenLon, paquetes );</span>
+
+<span class="fc" id="L50">        return planificarRutaDelDiaCommand;</span>
+    }
+
+    @Override
+    public PlanificarRutaDelDiaCommand.Paquete toCommand(PlanificarRutaRequest.PaqueteRequest paquete) {
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        if ( paquete == null ) {</span>
+<span class="nc" id="L56">            return null;</span>
+        }
+
+<span class="fc" id="L59">        String paqueteId = null;</span>
+<span class="fc" id="L60">        String pacienteId = null;</span>
+<span class="fc" id="L61">        double lat = 0.0d;</span>
+<span class="fc" id="L62">        double lon = 0.0d;</span>
+
+<span class="fc" id="L64">        paqueteId = paquete.paqueteId();</span>
+<span class="fc" id="L65">        pacienteId = paquete.pacienteId();</span>
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if ( paquete.lat() != null ) {</span>
+<span class="fc" id="L67">            lat = paquete.lat();</span>
+        }
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">        if ( paquete.lon() != null ) {</span>
+<span class="fc" id="L70">            lon = paquete.lon();</span>
+        }
+
+<span class="fc" id="L73">        PlanificarRutaDelDiaCommand.Paquete paquete1 = new PlanificarRutaDelDiaCommand.Paquete( paqueteId, pacienteId, lat, lon );</span>
+
+<span class="fc" id="L75">        return paquete1;</span>
+    }
+
+    @Override
+    public RutaPlanificadaResponse toResponse(PlanificarRutaResultado resultado) {
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if ( resultado == null ) {</span>
+<span class="nc" id="L81">            return null;</span>
+        }
+
+<span class="fc" id="L84">        String rutaId = null;</span>
+<span class="fc" id="L85">        List&lt;RutaPlanificadaResponse.EntregaProgramadaResponse&gt; entregas = null;</span>
+
+<span class="fc" id="L87">        rutaId = resultado.rutaId();</span>
+<span class="fc" id="L88">        entregas = entregaProgramadaListToEntregaProgramadaResponseList( resultado.entregas() );</span>
+
+<span class="fc" id="L90">        RutaPlanificadaResponse rutaPlanificadaResponse = new RutaPlanificadaResponse( rutaId, entregas );</span>
+
+<span class="fc" id="L92">        return rutaPlanificadaResponse;</span>
+    }
+
+    @Override
+    public RutaPlanificadaResponse.EntregaProgramadaResponse toResponse(PlanificarRutaResultado.EntregaProgramada entrega) {
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        if ( entrega == null ) {</span>
+<span class="nc" id="L98">            return null;</span>
+        }
+
+<span class="fc" id="L101">        String entregaId = null;</span>
+<span class="fc" id="L102">        String paqueteId = null;</span>
+<span class="fc" id="L103">        String pacienteId = null;</span>
+
+<span class="fc" id="L105">        entregaId = entrega.entregaId();</span>
+<span class="fc" id="L106">        paqueteId = entrega.paqueteId();</span>
+<span class="fc" id="L107">        pacienteId = entrega.pacienteId();</span>
+
+<span class="fc" id="L109">        RutaPlanificadaResponse.EntregaProgramadaResponse entregaProgramadaResponse = new RutaPlanificadaResponse.EntregaProgramadaResponse( entregaId, paqueteId, pacienteId );</span>
+
+<span class="fc" id="L111">        return entregaProgramadaResponse;</span>
+    }
+
+    @Override
+    public ConfirmarEntregaCommand toCommand(String entregaId, ConfirmarEntregaRequest request) {
+<span class="pc bpc" id="L116" title="3 of 4 branches missed.">        if ( entregaId == null &amp;&amp; request == null ) {</span>
+<span class="nc" id="L117">            return null;</span>
+        }
+
+<span class="fc" id="L120">        double lat = 0.0d;</span>
+<span class="fc" id="L121">        double lon = 0.0d;</span>
+<span class="fc" id="L122">        String urlEvidencia = null;</span>
+<span class="fc" id="L123">        String nombreReceptor = null;</span>
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        if ( request != null ) {</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">            if ( request.lat() != null ) {</span>
+<span class="fc" id="L126">                lat = request.lat();</span>
+            }
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">            if ( request.lon() != null ) {</span>
+<span class="fc" id="L129">                lon = request.lon();</span>
+            }
+<span class="fc" id="L131">            urlEvidencia = request.urlEvidencia();</span>
+<span class="fc" id="L132">            nombreReceptor = request.nombreReceptor();</span>
+        }
+<span class="fc" id="L134">        String entregaId1 = null;</span>
+<span class="fc" id="L135">        entregaId1 = entregaId;</span>
+
+<span class="fc" id="L137">        ConfirmarEntregaCommand confirmarEntregaCommand = new ConfirmarEntregaCommand( entregaId1, lat, lon, urlEvidencia, nombreReceptor );</span>
+
+<span class="fc" id="L139">        return confirmarEntregaCommand;</span>
+    }
+
+    @Override
+    public RegistrarEntregaFallidaCommand toCommand(String entregaId, RegistrarFalloRequest request) {
+<span class="pc bpc" id="L144" title="3 of 4 branches missed.">        if ( entregaId == null &amp;&amp; request == null ) {</span>
+<span class="nc" id="L145">            return null;</span>
+        }
+
+<span class="fc" id="L148">        MotivoFallo motivo = null;</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if ( request != null ) {</span>
+<span class="fc" id="L150">            motivo = request.motivo();</span>
+        }
+<span class="fc" id="L152">        String entregaId1 = null;</span>
+<span class="fc" id="L153">        entregaId1 = entregaId;</span>
+
+<span class="fc" id="L155">        RegistrarEntregaFallidaCommand registrarEntregaFallidaCommand = new RegistrarEntregaFallidaCommand( entregaId1, motivo );</span>
+
+<span class="fc" id="L157">        return registrarEntregaFallidaCommand;</span>
+    }
+
+    protected List&lt;PlanificarRutaDelDiaCommand.Paquete&gt; paqueteRequestListToPaqueteList(List&lt;PlanificarRutaRequest.PaqueteRequest&gt; list) {
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if ( list == null ) {</span>
+<span class="nc" id="L162">            return null;</span>
+        }
+
+<span class="fc" id="L165">        List&lt;PlanificarRutaDelDiaCommand.Paquete&gt; list1 = new ArrayList&lt;PlanificarRutaDelDiaCommand.Paquete&gt;( list.size() );</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        for ( PlanificarRutaRequest.PaqueteRequest paqueteRequest : list ) {</span>
+<span class="fc" id="L167">            list1.add( toCommand( paqueteRequest ) );</span>
+<span class="fc" id="L168">        }</span>
+
+<span class="fc" id="L170">        return list1;</span>
+    }
+
+    protected List&lt;RutaPlanificadaResponse.EntregaProgramadaResponse&gt; entregaProgramadaListToEntregaProgramadaResponseList(List&lt;PlanificarRutaResultado.EntregaProgramada&gt; list) {
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">        if ( list == null ) {</span>
+<span class="nc" id="L175">            return null;</span>
+        }
+
+<span class="fc" id="L178">        List&lt;RutaPlanificadaResponse.EntregaProgramadaResponse&gt; list1 = new ArrayList&lt;RutaPlanificadaResponse.EntregaProgramadaResponse&gt;( list.size() );</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        for ( PlanificarRutaResultado.EntregaProgramada entregaProgramada : list ) {</span>
+<span class="fc" id="L180">            list1.add( toResponse( entregaProgramada ) );</span>
+<span class="fc" id="L181">        }</span>
+
+<span class="fc" id="L183">        return list1;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

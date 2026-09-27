@@ -31,9 +31,24 @@ Cada prueba declara qué frontera cruza. Son cuatro:
 | # | Frontera | Dónde se prueba |
 |---|---|---|
 | 1 | REST → aplicación → JPA → PostGIS | `FlujoPersistenciaOutboxIT`, `BordeRestAmqpIT`, `PersistenciaRoundTripIT`, `FlujoIncorrectoIT` |
-| 2 | AMQP entrante (`PaquetesListosListener`) | `BordeRestAmqpIT`, `FlujoCompletoE2EIT`, `FlujoIncorrectoIT` |
+| 2 | AMQP entrante (`PaquetesListosListener`) | `BordeRestAmqpIT`, `FlujoEntregaExitosaIT`, `FlujoEntregaNoConcretadaIT`, `FlujoIncorrectoIT` |
 | 3 | Outbox → RabbitMQ → proyector → read model | `OutboxPublicacionIT`, `SagaEntregaIT`, `LecturaReadModelIT` |
 | 4 | ACL del proveedor de mapas (virtualizado) | `BordeRestAmqpIT`, `DegradacionMapasIT` |
+
+## FLUJOS
+
+Además de por frontera, las pruebas se agrupan por el flujo de negocio que recorren, con
+`@Tag("flujo-a")` / `@Tag("flujo-b")`. Cada flujo tiene una prueba de punta a punta.
+
+| Flujo | Tag | Recorrido | Punta a punta |
+|---|---|---|---|
+| A · Entrega exitosa | `flujo-a` | `PaquetesListos` → ruta planificada → iniciar, avanzar y completar la parada → confirmar con constancia → `EntregaConfirmada` a ms-notificaciones → historial y constancia | `FlujoEntregaExitosaIT` |
+| B · Entrega no concretada | `flujo-b` | `PaquetesListos` → ruta planificada → iniciar, avanzar y fallar la parada → fallo y reintento hasta agotar los intentos → `EntregaNoConcretada` a ms-catering → historial | `FlujoEntregaNoConcretadaIT` |
+
+- Correr un solo flujo: `mvn verify -Dgroups=flujo-a` (o `flujo-b`).
+- Una prueba que toca los dos flujos lleva los dos tags. `FlujoIncorrectoIT` (validaciones y
+  errores del borde REST) y `DegradacionMapasIT` (caída del proveedor de mapas) no pertenecen a
+  ningún flujo: se agrupan solo por frontera.
 
 ## COMPORTAMIENTO
 

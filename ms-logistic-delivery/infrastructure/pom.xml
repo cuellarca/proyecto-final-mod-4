@@ -13,6 +13,11 @@
     <artifactId>ms-logistic-delivery-infrastructure</artifactId>
     <packaging>jar</packaging>
 
+    <properties>
+        <!-- Umbral de cobertura de este modulo (testing-rules.md, seccion COBERTURA). -->
+        <cobertura.linea>0.80</cobertura.linea>
+    </properties>
+
     <name>ms-logistic-delivery :: infrastructure</name>
     <description>
         Adaptadores: REST, JPA/PostGIS (Hibernate Spatial), ACL de mapas (Resilience4j),

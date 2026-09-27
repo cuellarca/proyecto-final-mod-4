@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>HistorialReadModelJpa.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.projection</a> &gt; <span class="el_source">HistorialReadModelJpa.java</span></div><h1>HistorialReadModelJpa.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.projection;
+
+import com.nurtricenter.logisticdelivery.application.port.out.HistorialReadModel;
+import com.nurtricenter.logisticdelivery.application.usecase.query.ConstanciaView;
+import com.nurtricenter.logisticdelivery.application.usecase.query.HistorialEntregaView;
+import com.nurtricenter.logisticdelivery.infrastructure.projection.entity.HistorialEntregaPacienteJpaEntity;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Adaptador de lectura del puerto {@code HistorialReadModel}: consulta el read model y mapea a
+ * vistas. No toca el lado de escritura (CQRS, HU-6).
+ */
+@Component
+public class HistorialReadModelJpa implements HistorialReadModel {
+
+    private final HistorialJpaRepository repositorio;
+
+<span class="fc" id="L23">    public HistorialReadModelJpa(HistorialJpaRepository repositorio) {</span>
+<span class="fc" id="L24">        this.repositorio = repositorio;</span>
+<span class="fc" id="L25">    }</span>
+
+    @Override
+    public List&lt;HistorialEntregaView&gt; historialDePaciente(String pacienteId, Instant desde, Instant hasta) {
+<span class="fc" id="L29">        return repositorio</span>
+<span class="fc" id="L30">                .findByPacienteIdAndUltimoEventoEnBetweenOrderByUltimoEventoEnDesc(pacienteId, desde, hasta)</span>
+<span class="fc" id="L31">                .stream()</span>
+<span class="fc" id="L32">                .map(this::toHistorialView)</span>
+<span class="fc" id="L33">                .toList();</span>
+    }
+
+    @Override
+    public Optional&lt;ConstanciaView&gt; constanciaDe(String entregaId) {
+<span class="fc" id="L38">        return repositorio.findById(UUID.fromString(entregaId))</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">                .filter(e -&gt; e.getConstanciaUrl() != null)</span>
+<span class="fc" id="L40">                .map(this::toConstanciaView);</span>
+    }
+
+    private HistorialEntregaView toHistorialView(HistorialEntregaPacienteJpaEntity e) {
+<span class="fc" id="L44">        return new HistorialEntregaView(</span>
+<span class="fc" id="L45">                e.getEntregaId().toString(),</span>
+<span class="fc" id="L46">                e.getPacienteId(),</span>
+<span class="fc" id="L47">                e.getPaqueteId(),</span>
+<span class="fc" id="L48">                e.getEstado(),</span>
+<span class="fc" id="L49">                e.getMotivoFallo(),</span>
+<span class="fc" id="L50">                e.getIntentos(),</span>
+<span class="fc" id="L51">                e.getUltimoEventoEn());</span>
+    }
+
+    private ConstanciaView toConstanciaView(HistorialEntregaPacienteJpaEntity e) {
+<span class="fc" id="L55">        return new ConstanciaView(</span>
+<span class="fc" id="L56">                e.getEntregaId().toString(),</span>
+<span class="fc" id="L57">                e.getConstanciaTimestamp(),</span>
+<span class="fc" id="L58">                e.getConstanciaLat(),</span>
+<span class="fc" id="L59">                e.getConstanciaLon(),</span>
+<span class="fc" id="L60">                e.getConstanciaUrl(),</span>
+<span class="fc" id="L61">                e.getConstanciaReceptor());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

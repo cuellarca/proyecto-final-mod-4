@@ -19,6 +19,7 @@ import com.nurtricenter.logisticdelivery.domain.shared.RepartidorId;
 import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
 import com.nurtricenter.logisticdelivery.domain.shared.Url;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -41,6 +42,8 @@ abstract class PersistenciaRoundTripTests {
     @Autowired
     protected EntregaRepository entregaRepository;
 
+    @Tag("flujo-a")
+    @Tag("flujo-b")
     @Test
     @DisplayName("HU-1 · flujo correcto: una ruta con paradas geolocalizadas sobrevive el round-trip a PostGIS")
     void guardaYRehidrataUnaRutaConParadasGeolocalizadas() {
@@ -68,6 +71,8 @@ abstract class PersistenciaRoundTripTests {
         assertThat(primera.estado()).isEqualTo(EstadoParada.PENDIENTE);
     }
 
+    @Tag("flujo-a")
+    @Tag("flujo-b")
     @Test
     @DisplayName("HU-3 · flujo correcto: actualizar una ruta en curso preserva la identidad de sus paradas")
     void actualizaUnaRutaEnCursoPreservandoLaIdentidadDeSusParadas() {
@@ -88,6 +93,7 @@ abstract class PersistenciaRoundTripTests {
         assertThat(recuperada.paradas().get(0).estado()).isEqualTo(EstadoParada.COMPLETADA);
     }
 
+    @Tag("flujo-a")
     @Test
     @DisplayName("HU-4 · flujo correcto: una entrega confirmada se rehidrata con su constancia")
     void guardaYRehidrataUnaEntregaConfirmadaConSuConstancia() {
@@ -114,6 +120,7 @@ abstract class PersistenciaRoundTripTests {
         assertThat(recuperada.motivoFallo()).isEmpty();
     }
 
+    @Tag("flujo-b")
     @Test
     @DisplayName("HU-5 · flujo correcto: una entrega fallida se rehidrata con su motivo")
     void guardaYRehidrataUnaEntregaFallidaConSuMotivo() {

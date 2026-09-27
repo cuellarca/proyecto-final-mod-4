@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Entrega.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.entrega</a> &gt; <span class="el_source">Entrega.java</span></div><h1>Entrega.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.entrega;
+
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaConfirmada;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaFallida;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaNoConcretada;
+import com.nurtricenter.logisticdelivery.domain.entrega.event.EntregaReprogramada;
+import com.nurtricenter.logisticdelivery.domain.service.PoliticaDeReintento;
+import com.nurtricenter.logisticdelivery.domain.shared.AggregateRoot;
+import com.nurtricenter.logisticdelivery.domain.shared.DomainException;
+import com.nurtricenter.logisticdelivery.domain.shared.EntregaId;
+import com.nurtricenter.logisticdelivery.domain.shared.PacienteId;
+import com.nurtricenter.logisticdelivery.domain.shared.PaqueteId;
+import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
+
+import java.time.Instant;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Agregado raiz {@code Entrega}: el acto de entregar un paquete a un paciente y su
+ * evidencia. Es la unidad de consistencia de la operacion; aqui viven las reglas de
+ * &quot;entregado con constancia&quot; (HU-4) y de &quot;fallo con motivo / reintento&quot; (HU-5).
+ *
+ * &lt;p&gt;Se relaciona con {@code RutaDeEntrega} &lt;b&gt;por identidad&lt;/b&gt; ({@code rutaId}),
+ * nunca por referencia directa de objetos (regla de limites de agregado).&lt;/p&gt;
+ *
+ * &lt;p&gt;Invariantes protegidas por la raiz:&lt;/p&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;No pasa a ENTREGADA sin una {@code ConstanciaDeEntrega} completa (HU-4).&lt;/li&gt;
+ *   &lt;li&gt;Una entrega FALLIDA exige {@code motivoFallo} (HU-5).&lt;/li&gt;
+ *   &lt;li&gt;Un estado terminal (ENTREGADA / NO_CONCRETADA) no admite mas cambios.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public class Entrega extends AggregateRoot&lt;EntregaId&gt; {
+
+    private final EntregaId entregaId;
+    private final PaqueteId paqueteId;
+    private final PacienteId pacienteId;
+    private final RutaId rutaId;
+
+    private EstadoEntrega estado;
+    private Intentos intentos;
+    private MotivoFallo motivoFallo;            // presente solo cuando estado = FALLIDA
+    private ConstanciaDeEntrega constancia;     // presente solo cuando estado = ENTREGADA
+
+    private Entrega(EntregaId entregaId, PaqueteId paqueteId, PacienteId pacienteId,
+<span class="fc" id="L47">                    RutaId rutaId, Intentos intentos) {</span>
+<span class="fc" id="L48">        this.entregaId = Objects.requireNonNull(entregaId, &quot;EntregaId requerido&quot;);</span>
+<span class="fc" id="L49">        this.paqueteId = Objects.requireNonNull(paqueteId, &quot;PaqueteId requerido&quot;);</span>
+<span class="fc" id="L50">        this.pacienteId = Objects.requireNonNull(pacienteId, &quot;PacienteId requerido&quot;);</span>
+<span class="fc" id="L51">        this.rutaId = Objects.requireNonNull(rutaId, &quot;RutaId requerido&quot;);</span>
+<span class="fc" id="L52">        this.intentos = Objects.requireNonNull(intentos, &quot;Intentos requerido&quot;);</span>
+<span class="fc" id="L53">        this.estado = EstadoEntrega.PENDIENTE;</span>
+<span class="fc" id="L54">    }</span>
+
+    /** Programa una entrega pendiente para un paquete dentro de una ruta. */
+    public static Entrega programar(PaqueteId paqueteId, PacienteId pacienteId,
+                                    RutaId rutaId, int maximoReintentos) {
+<span class="fc" id="L59">        return new Entrega(EntregaId.nuevo(), paqueteId, pacienteId, rutaId,</span>
+<span class="fc" id="L60">                Intentos.inicial(maximoReintentos));</span>
+    }
+
+    /**
+     * Reconstruye una {@code Entrega} desde su estado persistido (extension aditiva y pura,
+     * usada por la capa de persistencia). No emite eventos ni re-valida invariantes de
+     * creacion: asume que el estado provino de un agregado que ya fue valido.
+     */
+    public static Entrega reconstituir(EntregaId entregaId, PaqueteId paqueteId, PacienteId pacienteId,
+                                       RutaId rutaId, EstadoEntrega estado, Intentos intentos,
+                                       MotivoFallo motivoFallo, ConstanciaDeEntrega constancia) {
+<span class="fc" id="L71">        Entrega entrega = new Entrega(entregaId, paqueteId, pacienteId, rutaId, intentos);</span>
+<span class="fc" id="L72">        entrega.estado = Objects.requireNonNull(estado, &quot;Estado requerido para reconstituir&quot;);</span>
+<span class="fc" id="L73">        entrega.motivoFallo = motivoFallo;</span>
+<span class="fc" id="L74">        entrega.constancia = constancia;</span>
+<span class="fc" id="L75">        return entrega;</span>
+    }
+
+    /**
+     * HU-4: confirma la entrega con una constancia completa e inmutable.
+     * Invariante central: sin constancia valida no hay entrega.
+     */
+    public void confirmar(ConstanciaDeEntrega constancia) {
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        if (estado.esTerminal()) {</span>
+<span class="fc" id="L84">            throw new DomainException(&quot;Una entrega &quot; + estado + &quot; no puede confirmarse&quot;);</span>
+        }
+<span class="fc" id="L86">        Objects.requireNonNull(constancia, &quot;La entrega requiere una constancia (HU-4)&quot;);</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (!constancia.estaCompleta()) {</span>
+<span class="nc" id="L88">            throw new DomainException(&quot;No se puede marcar ENTREGADA sin una constancia completa (HU-4)&quot;);</span>
+        }
+<span class="fc" id="L90">        this.constancia = constancia;</span>
+<span class="fc" id="L91">        this.motivoFallo = null;</span>
+<span class="fc" id="L92">        this.estado = EstadoEntrega.ENTREGADA;</span>
+<span class="fc" id="L93">        registrarEvento(new EntregaConfirmada(entregaId, pacienteId, paqueteId, constancia, constancia.timestamp()));</span>
+<span class="fc" id="L94">    }</span>
+
+    /** HU-5: registra un fallo indicando su motivo obligatorio (reloj del sistema). */
+    public void registrarFallo(MotivoFallo motivo) {
+<span class="fc" id="L98">        registrarFallo(motivo, Instant.now());</span>
+<span class="fc" id="L99">    }</span>
+
+    /** HU-5: variante con el instante inyectado desde la aplicacion (tests deterministas, Fase 2). */
+    public void registrarFallo(MotivoFallo motivo, Instant ocurridoEn) {
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (estado.esTerminal()) {</span>
+<span class="nc" id="L104">            throw new DomainException(&quot;Una entrega &quot; + estado + &quot; no puede registrar fallo&quot;);</span>
+        }
+<span class="fc" id="L106">        Objects.requireNonNull(motivo, &quot;Un fallo exige un motivo (HU-5)&quot;);</span>
+<span class="fc" id="L107">        Objects.requireNonNull(ocurridoEn, &quot;Instante requerido&quot;);</span>
+<span class="fc" id="L108">        this.motivoFallo = motivo;</span>
+<span class="fc" id="L109">        this.estado = EstadoEntrega.FALLIDA;</span>
+<span class="fc" id="L110">        registrarEvento(new EntregaFallida(entregaId, pacienteId, motivo, ocurridoEn));</span>
+<span class="fc" id="L111">    }</span>
+
+    /**
+     * HU-5: aplica la politica de reintento sobre una entrega fallida (reloj del sistema).
+     * Si hay saldo, reprograma (vuelve a PENDIENTE); si no, queda NO_CONCRETADA.
+     */
+    public void reintentar(PoliticaDeReintento politica) {
+<span class="fc" id="L118">        reintentar(politica, Instant.now());</span>
+<span class="fc" id="L119">    }</span>
+
+    /** HU-5: variante con el instante inyectado desde la aplicacion (tests deterministas, Fase 2). */
+    public void reintentar(PoliticaDeReintento politica, Instant ocurridoEn) {
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        if (estado != EstadoEntrega.FALLIDA) {</span>
+<span class="fc" id="L124">            throw new DomainException(&quot;Solo una entrega FALLIDA puede reintentarse (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L126">        Objects.requireNonNull(politica, &quot;Politica de reintento requerida&quot;);</span>
+<span class="fc" id="L127">        Objects.requireNonNull(ocurridoEn, &quot;Instante requerido&quot;);</span>
+<span class="pc bpc" id="L128" title="1 of 3 branches missed.">        switch (politica.decidir(intentos)) {</span>
+            case REINTENTAR -&gt; {
+<span class="fc" id="L130">                this.intentos = intentos.incrementar();</span>
+<span class="fc" id="L131">                this.estado = EstadoEntrega.PENDIENTE;</span>
+<span class="fc" id="L132">                registrarEvento(new EntregaReprogramada(entregaId, pacienteId, intentos.valor(), ocurridoEn));</span>
+<span class="fc" id="L133">            }</span>
+            case NO_CONCRETAR -&gt; {
+<span class="fc" id="L135">                this.estado = EstadoEntrega.NO_CONCRETADA;</span>
+<span class="fc" id="L136">                registrarEvento(new EntregaNoConcretada(entregaId, pacienteId, ocurridoEn));</span>
+            }
+        }
+<span class="fc" id="L139">    }</span>
+
+    @Override
+    public EntregaId id() {
+<span class="fc" id="L143">        return entregaId;</span>
+    }
+
+    public PaqueteId paqueteId() {
+<span class="fc" id="L147">        return paqueteId;</span>
+    }
+
+    public PacienteId pacienteId() {
+<span class="fc" id="L151">        return pacienteId;</span>
+    }
+
+    public RutaId rutaId() {
+<span class="fc" id="L155">        return rutaId;</span>
+    }
+
+    public EstadoEntrega estado() {
+<span class="fc" id="L159">        return estado;</span>
+    }
+
+    public Intentos intentos() {
+<span class="fc" id="L163">        return intentos;</span>
+    }
+
+    public Optional&lt;MotivoFallo&gt; motivoFallo() {
+<span class="fc" id="L167">        return Optional.ofNullable(motivoFallo);</span>
+    }
+
+    public Optional&lt;ConstanciaDeEntrega&gt; constancia() {
+<span class="fc" id="L171">        return Optional.ofNullable(constancia);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

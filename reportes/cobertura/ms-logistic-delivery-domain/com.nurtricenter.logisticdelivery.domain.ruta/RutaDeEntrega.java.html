@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>RutaDeEntrega.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.ruta</a> &gt; <span class="el_source">RutaDeEntrega.java</span></div><h1>RutaDeEntrega.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.ruta;
+
+import com.nurtricenter.logisticdelivery.domain.ruta.event.RutaDeEntregaPlanificada;
+import com.nurtricenter.logisticdelivery.domain.service.OptimizadorDeRutas;
+import com.nurtricenter.logisticdelivery.domain.shared.AggregateRoot;
+import com.nurtricenter.logisticdelivery.domain.shared.DomainException;
+import com.nurtricenter.logisticdelivery.domain.shared.Fecha;
+import com.nurtricenter.logisticdelivery.domain.shared.Geolocalizacion;
+import com.nurtricenter.logisticdelivery.domain.shared.ParadaId;
+import com.nurtricenter.logisticdelivery.domain.shared.RepartidorId;
+import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * Agregado raiz {@code RutaDeEntrega}: la hoja de ruta de un repartidor para un dia.
+ * Es la unidad de consistencia de la planificacion; toda modificacion de sus paradas
+ * pasa por aqui.
+ *
+ * &lt;p&gt;Invariantes protegidas por la raiz:&lt;/p&gt;
+ * &lt;ul&gt;
+ *   &lt;li&gt;El {@code orden} de las paradas es &lt;b&gt;contiguo y unico&lt;/b&gt; (1..n).&lt;/li&gt;
+ *   &lt;li&gt;Toda {@code Parada} tiene {@code Geolocalizacion} (garantizada al construir la parada, HU-2).&lt;/li&gt;
+ *   &lt;li&gt;Las paradas solo se operan con la ruta EN_CURSO.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public class RutaDeEntrega extends AggregateRoot&lt;RutaId&gt; {
+
+    private final RutaId rutaId;
+    private final RepartidorId repartidorId;
+    private final Fecha fecha;
+    private EstadoRuta estado;
+    private final List&lt;Parada&gt; paradas;
+
+<span class="fc" id="L41">    private RutaDeEntrega(RutaId rutaId, RepartidorId repartidorId, Fecha fecha, List&lt;Parada&gt; paradas) {</span>
+<span class="fc" id="L42">        this.rutaId = Objects.requireNonNull(rutaId, &quot;RutaId requerido&quot;);</span>
+<span class="fc" id="L43">        this.repartidorId = Objects.requireNonNull(repartidorId, &quot;RepartidorId requerido&quot;);</span>
+<span class="fc" id="L44">        this.fecha = Objects.requireNonNull(fecha, &quot;Fecha requerida&quot;);</span>
+<span class="fc" id="L45">        Objects.requireNonNull(paradas, &quot;La ruta requiere una lista de paradas&quot;);</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (paradas.isEmpty()) {</span>
+<span class="fc" id="L47">            throw new DomainException(&quot;Una ruta debe planificarse con al menos una parada&quot;);</span>
+        }
+<span class="fc" id="L49">        validarOrdenContiguoYUnico(paradas);</span>
+<span class="fc" id="L50">        this.paradas = new ArrayList&lt;&gt;(paradas);</span>
+<span class="fc" id="L51">        this.estado = EstadoRuta.PLANIFICADA;</span>
+<span class="fc" id="L52">    }</span>
+
+    // Constructor de reconstitucion: reutiliza la validacion de invariantes pero permite fijar el estado.
+    private RutaDeEntrega(RutaId rutaId, RepartidorId repartidorId, Fecha fecha,
+                          List&lt;Parada&gt; paradas, EstadoRuta estado) {
+<span class="fc" id="L57">        this(rutaId, repartidorId, fecha, paradas);</span>
+<span class="fc" id="L58">        this.estado = Objects.requireNonNull(estado, &quot;EstadoRuta requerido&quot;);</span>
+<span class="fc" id="L59">    }</span>
+
+    /**
+     * Crea y planifica una ruta a partir de sus paradas geolocalizadas (HU-1/HU-3, reloj del sistema).
+     * Emite el evento {@code RutaDeEntregaPlanificada}.
+     */
+    public static RutaDeEntrega planificar(RepartidorId repartidorId, Fecha fecha, List&lt;Parada&gt; paradas) {
+<span class="fc" id="L66">        return planificar(repartidorId, fecha, paradas, Instant.now());</span>
+    }
+
+    /** HU-1/HU-3: variante con el instante inyectado desde la aplicacion (tests deterministas, Fase 2). */
+    public static RutaDeEntrega planificar(RepartidorId repartidorId, Fecha fecha,
+                                           List&lt;Parada&gt; paradas, Instant ocurridoEn) {
+<span class="fc" id="L72">        Objects.requireNonNull(ocurridoEn, &quot;Instante requerido&quot;);</span>
+<span class="fc" id="L73">        RutaDeEntrega ruta = new RutaDeEntrega(RutaId.nuevo(), repartidorId, fecha, paradas);</span>
+<span class="fc" id="L74">        ruta.registrarEvento(new RutaDeEntregaPlanificada(</span>
+<span class="fc" id="L75">                ruta.rutaId, repartidorId, fecha, ruta.paradas.size(), ocurridoEn));</span>
+<span class="fc" id="L76">        return ruta;</span>
+    }
+
+    /**
+     * Reconstruye una {@code RutaDeEntrega} desde su estado persistido (extension aditiva y pura,
+     * usada por la capa de persistencia). No emite eventos; asume paradas ya validas (orden 1..n).
+     */
+    public static RutaDeEntrega reconstituir(RutaId rutaId, RepartidorId repartidorId, Fecha fecha,
+                                             EstadoRuta estado, List&lt;Parada&gt; paradas) {
+<span class="fc" id="L85">        return new RutaDeEntrega(rutaId, repartidorId, fecha, paradas, estado);</span>
+    }
+
+    // Invariante: el orden de las paradas debe ser exactamente {1..n}, sin huecos ni repetidos.
+    private static void validarOrdenContiguoYUnico(List&lt;Parada&gt; paradas) {
+<span class="fc" id="L90">        Set&lt;Integer&gt; ordenes = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        for (Parada parada : paradas) {</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            if (!ordenes.add(parada.orden())) {</span>
+<span class="fc" id="L93">                throw new DomainException(&quot;Orden de parada duplicado: &quot; + parada.orden());</span>
+            }
+<span class="fc" id="L95">        }</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        for (int i = 1; i &lt;= paradas.size(); i++) {</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            if (!ordenes.contains(i)) {</span>
+<span class="fc" id="L98">                throw new DomainException(</span>
+<span class="fc" id="L99">                        &quot;El orden de las paradas debe ser contiguo 1..&quot; + paradas.size() + &quot; (falta &quot; + i + &quot;)&quot;);</span>
+            }
+        }
+<span class="fc" id="L102">    }</span>
+
+    /** Inicia el recorrido de la ruta (PLANIFICADA -&gt; EN_CURSO). */
+    public void iniciar() {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (estado != EstadoRuta.PLANIFICADA) {</span>
+<span class="nc" id="L107">            throw new DomainException(&quot;Solo una ruta PLANIFICADA puede iniciarse (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L109">        estado = EstadoRuta.EN_CURSO;</span>
+<span class="fc" id="L110">    }</span>
+
+    /** Registra la llegada del repartidor a una parada (PENDIENTE -&gt; EN_CURSO). */
+    public void avanzarParada(ParadaId paradaId) {
+<span class="fc" id="L114">        exigirRutaEnCurso();</span>
+<span class="fc" id="L115">        buscarParada(paradaId).iniciar();</span>
+<span class="fc" id="L116">    }</span>
+
+    /** Marca una parada como completada; finaliza la ruta si todas son terminales. */
+    public void completarParada(ParadaId paradaId) {
+<span class="fc" id="L120">        exigirRutaEnCurso();</span>
+<span class="fc" id="L121">        buscarParada(paradaId).completar();</span>
+<span class="fc" id="L122">        finalizarSiTodasTerminales();</span>
+<span class="fc" id="L123">    }</span>
+
+    /** Marca una parada como fallida; finaliza la ruta si todas son terminales. */
+    public void fallarParada(ParadaId paradaId) {
+<span class="fc" id="L127">        exigirRutaEnCurso();</span>
+<span class="fc" id="L128">        buscarParada(paradaId).fallar();</span>
+<span class="fc" id="L129">        finalizarSiTodasTerminales();</span>
+<span class="fc" id="L130">    }</span>
+
+    /**
+     * Reordena las paradas segun la secuencia optima que devuelve el
+     * {@code OptimizadorDeRutas} y reasigna el orden 1..n (HU-3). Solo aplicable
+     * mientras la ruta esta PLANIFICADA.
+     */
+    public void aplicarOptimizacion(OptimizadorDeRutas optimizador, Geolocalizacion origen) {
+<span class="fc" id="L138">        Objects.requireNonNull(optimizador, &quot;Optimizador requerido&quot;);</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">        if (estado != EstadoRuta.PLANIFICADA) {</span>
+<span class="nc" id="L140">            throw new DomainException(&quot;La ruta solo puede optimizarse mientras esta PLANIFICADA (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L142">        List&lt;Parada&gt; secuencia = optimizador.optimizar(origen, List.copyOf(paradas));</span>
+<span class="pc bpc" id="L143" title="2 of 4 branches missed.">        if (secuencia.size() != paradas.size() || !new HashSet&lt;&gt;(secuencia).containsAll(paradas)) {</span>
+<span class="nc" id="L144">            throw new DomainException(&quot;La optimizacion debe devolver exactamente las mismas paradas de la ruta&quot;);</span>
+        }
+<span class="fc" id="L146">        int orden = 1;</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">        for (Parada parada : secuencia) {</span>
+<span class="fc" id="L148">            parada.asignarOrden(orden++);</span>
+<span class="fc" id="L149">        }</span>
+<span class="fc" id="L150">        paradas.clear();</span>
+<span class="fc" id="L151">        paradas.addAll(secuencia);</span>
+<span class="fc" id="L152">    }</span>
+
+    private void exigirRutaEnCurso() {
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        if (estado != EstadoRuta.EN_CURSO) {</span>
+<span class="fc" id="L156">            throw new DomainException(&quot;La ruta debe estar EN_CURSO para operar sus paradas (actual: &quot; + estado + &quot;)&quot;);</span>
+        }
+<span class="fc" id="L158">    }</span>
+
+    private Parada buscarParada(ParadaId paradaId) {
+<span class="fc" id="L161">        return paradas.stream()</span>
+<span class="fc" id="L162">                .filter(parada -&gt; parada.id().equals(paradaId))</span>
+<span class="fc" id="L163">                .findFirst()</span>
+<span class="pc" id="L164">                .orElseThrow(() -&gt; new DomainException(&quot;La parada no pertenece a esta ruta: &quot; + paradaId));</span>
+    }
+
+    private void finalizarSiTodasTerminales() {
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (paradas.stream().allMatch(parada -&gt; parada.estado().esTerminal())) {</span>
+<span class="fc" id="L169">            estado = EstadoRuta.FINALIZADA;</span>
+        }
+<span class="fc" id="L171">    }</span>
+
+    @Override
+    public RutaId id() {
+<span class="fc" id="L175">        return rutaId;</span>
+    }
+
+    public RepartidorId repartidorId() {
+<span class="fc" id="L179">        return repartidorId;</span>
+    }
+
+    public Fecha fecha() {
+<span class="fc" id="L183">        return fecha;</span>
+    }
+
+    public EstadoRuta estado() {
+<span class="fc" id="L187">        return estado;</span>
+    }
+
+    /** Paradas de la ruta ordenadas por su secuencia (copia de solo lectura). */
+    public List&lt;Parada&gt; paradas() {
+<span class="fc" id="L192">        return paradas.stream()</span>
+<span class="fc" id="L193">                .sorted(Comparator.comparingInt(Parada::orden))</span>
+<span class="fc" id="L194">                .toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

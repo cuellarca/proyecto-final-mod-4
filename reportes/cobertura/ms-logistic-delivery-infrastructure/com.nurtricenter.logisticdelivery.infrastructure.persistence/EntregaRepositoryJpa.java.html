@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>EntregaRepositoryJpa.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.persistence</a> &gt; <span class="el_source">EntregaRepositoryJpa.java</span></div><h1>EntregaRepositoryJpa.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.persistence;
+
+import com.nurtricenter.logisticdelivery.domain.entrega.Entrega;
+import com.nurtricenter.logisticdelivery.domain.repository.EntregaRepository;
+import com.nurtricenter.logisticdelivery.domain.shared.EntregaId;
+import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
+import com.nurtricenter.logisticdelivery.infrastructure.persistence.mapper.EntregaJpaMapper;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Adaptador JPA del puerto {@code EntregaRepository}. Al guardar aplica load-merge para
+ * preservar el {@code @Version} de la entidad (optimistic locking).
+ */
+@Repository
+public class EntregaRepositoryJpa implements EntregaRepository {
+
+    private final EntregaJpaRepository jpa;
+    private final EntregaJpaMapper mapper;
+
+<span class="fc" id="L23">    public EntregaRepositoryJpa(EntregaJpaRepository jpa, EntregaJpaMapper mapper) {</span>
+<span class="fc" id="L24">        this.jpa = jpa;</span>
+<span class="fc" id="L25">        this.mapper = mapper;</span>
+<span class="fc" id="L26">    }</span>
+
+    @Override
+    public void guardar(Entrega entrega) {
+<span class="fc" id="L30">        jpa.findById(entrega.id().valor())</span>
+<span class="fc" id="L31">                .ifPresentOrElse(</span>
+                        entity -&gt; {
+<span class="fc" id="L33">                            mapper.copiarEstado(entity, entrega);</span>
+<span class="fc" id="L34">                            jpa.save(entity);</span>
+<span class="fc" id="L35">                        },</span>
+<span class="fc" id="L36">                        () -&gt; jpa.save(mapper.toNewEntity(entrega)));</span>
+<span class="fc" id="L37">    }</span>
+
+    @Override
+    public Optional&lt;Entrega&gt; buscarPorId(EntregaId id) {
+<span class="fc" id="L41">        return jpa.findById(id.valor()).map(mapper::toDomain);</span>
+    }
+
+    @Override
+    public List&lt;Entrega&gt; buscarPorRuta(RutaId rutaId) {
+<span class="fc" id="L46">        return jpa.findByRutaId(rutaId.valor()).stream().map(mapper::toDomain).toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

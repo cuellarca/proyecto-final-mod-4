@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>GeocodificadorAcl.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.acl</a> &gt; <span class="el_source">GeocodificadorAcl.java</span></div><h1>GeocodificadorAcl.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.acl;
+
+import com.nurtricenter.logisticdelivery.domain.service.Geocodificador;
+import com.nurtricenter.logisticdelivery.domain.shared.Destino;
+import com.nurtricenter.logisticdelivery.domain.shared.Geolocalizacion;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryRegistry;
+import io.github.resilience4j.timelimiter.TimeLimiter;
+import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
+
+/**
+ * ACL al proveedor de mapas para geocodificar (HU-2). Envuelve la llamada externa con Resilience4j
+ * (timeout + retry + circuit breaker). A diferencia de la optimizacion, geocodificar no tiene un
+ * fallback puro: si el proveedor no responde, propaga {@link ProveedorDeMapasNoDisponibleException}
+ * (la capa REST la mapea a 503).
+ */
+@Component
+@Primary
+public class GeocodificadorAcl implements Geocodificador {
+
+<span class="fc" id="L31">    private static final Logger log = LoggerFactory.getLogger(GeocodificadorAcl.class);</span>
+    private static final String INSTANCIA = &quot;mapsProvider&quot;;
+
+    private final ProveedorDeMapasStub proveedor;
+    private final CircuitBreaker circuitBreaker;
+    private final Retry retry;
+    private final TimeLimiter timeLimiter;
+
+    public GeocodificadorAcl(ProveedorDeMapasStub proveedor,
+                             CircuitBreakerRegistry circuitBreakerRegistry,
+                             RetryRegistry retryRegistry,
+<span class="fc" id="L42">                             TimeLimiterRegistry timeLimiterRegistry) {</span>
+<span class="fc" id="L43">        this.proveedor = proveedor;</span>
+<span class="fc" id="L44">        this.circuitBreaker = circuitBreakerRegistry.circuitBreaker(INSTANCIA);</span>
+<span class="fc" id="L45">        this.retry = retryRegistry.retry(INSTANCIA);</span>
+<span class="fc" id="L46">        this.timeLimiter = timeLimiterRegistry.timeLimiter(INSTANCIA);</span>
+<span class="fc" id="L47">    }</span>
+
+    @Override
+    public Geolocalizacion geocodificar(Destino destino) {
+<span class="fc" id="L51">        Supplier&lt;CompletableFuture&lt;Geolocalizacion&gt;&gt; futuro =</span>
+<span class="fc" id="L52">                () -&gt; CompletableFuture.supplyAsync(() -&gt; proveedor.geocodificar(destino));</span>
+
+<span class="fc" id="L54">        Callable&lt;Geolocalizacion&gt; conTimeout = TimeLimiter.decorateFutureSupplier(timeLimiter, futuro);</span>
+<span class="fc" id="L55">        Callable&lt;Geolocalizacion&gt; protegido =</span>
+<span class="fc" id="L56">                CircuitBreaker.decorateCallable(circuitBreaker,</span>
+<span class="fc" id="L57">                        Retry.decorateCallable(retry, conTimeout));</span>
+
+        try {
+<span class="fc" id="L60">            return protegido.call();</span>
+<span class="fc" id="L61">        } catch (ProveedorDeMapasNoDisponibleException e) {</span>
+<span class="fc" id="L62">            throw e;</span>
+<span class="nc" id="L63">        } catch (Exception e) {</span>
+<span class="nc" id="L64">            log.warn(&quot;Proveedor de mapas no disponible al geocodificar '{}': {}&quot;, destino.texto(), e.toString());</span>
+<span class="nc" id="L65">            throw new ProveedorDeMapasNoDisponibleException(&quot;No se pudo geocodificar: &quot; + destino.texto());</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

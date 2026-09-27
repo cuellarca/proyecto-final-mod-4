@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>ConfirmarEntrega.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-application</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.application.usecase.command</a> &gt; <span class="el_source">ConfirmarEntrega.java</span></div><h1>ConfirmarEntrega.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.application.usecase.command;
+
+import com.nurtricenter.logisticdelivery.application.EntidadNoEncontradaException;
+import com.nurtricenter.logisticdelivery.application.port.out.PublicadorDeEventos;
+import com.nurtricenter.logisticdelivery.domain.entrega.ConstanciaDeEntrega;
+import com.nurtricenter.logisticdelivery.domain.entrega.Entrega;
+import com.nurtricenter.logisticdelivery.domain.repository.EntregaRepository;
+import com.nurtricenter.logisticdelivery.domain.shared.EntregaId;
+import com.nurtricenter.logisticdelivery.domain.shared.Geolocalizacion;
+import com.nurtricenter.logisticdelivery.domain.shared.Url;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.Instant;
+
+/**
+ * Caso de uso HU-4: confirma una entrega con su constancia completa y deja el evento
+ * {@code EntregaConfirmada} en el Outbox, en la misma transaccion.
+ */
+@Service
+public class ConfirmarEntrega {
+
+    private final EntregaRepository entregaRepository;
+    private final PublicadorDeEventos publicador;
+    private final Clock clock;
+
+<span class="fc" id="L28">    public ConfirmarEntrega(EntregaRepository entregaRepository, PublicadorDeEventos publicador, Clock clock) {</span>
+<span class="fc" id="L29">        this.entregaRepository = entregaRepository;</span>
+<span class="fc" id="L30">        this.publicador = publicador;</span>
+<span class="fc" id="L31">        this.clock = clock;</span>
+<span class="fc" id="L32">    }</span>
+
+    @Transactional
+    public void ejecutar(ConfirmarEntregaCommand comando) {
+<span class="fc" id="L36">        Entrega entrega = entregaRepository.buscarPorId(EntregaId.de(comando.entregaId()))</span>
+<span class="fc" id="L37">                .orElseThrow(() -&gt; new EntidadNoEncontradaException(</span>
+<span class="fc" id="L38">                        &quot;Entrega no encontrada: &quot; + comando.entregaId()));</span>
+
+<span class="fc" id="L40">        ConstanciaDeEntrega constancia = new ConstanciaDeEntrega(</span>
+<span class="fc" id="L41">                Instant.now(clock),</span>
+<span class="fc" id="L42">                new Geolocalizacion(comando.lat(), comando.lon()),</span>
+<span class="fc" id="L43">                Url.de(comando.urlEvidencia()),</span>
+<span class="fc" id="L44">                comando.nombreReceptor());</span>
+
+<span class="fc" id="L46">        entrega.confirmar(constancia);</span>
+
+<span class="fc" id="L48">        entregaRepository.guardar(entrega);</span>
+<span class="fc" id="L49">        publicador.publicar(entrega.pullDomainEvents());</span>
+<span class="fc" id="L50">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

@@ -10,8 +10,9 @@
 # Lo corre la persona que programa, el skill test-writer al terminar y el skill test-checker
 # como chequeo mecanico previo a su juicio. Devuelve 0 solo si todo pasa.
 #
-# Uso:  ./scripts/verificar-pruebas.sh [--rapido]
-#         --rapido  omite maven; solo el chequeo mecanico de las reglas
+# Uso:  ./scripts/verificar-pruebas.sh [--rapido | --publicar-reporte]
+#         --rapido            omite maven; solo el chequeo mecanico de las reglas
+#         --publicar-reporte  si todo pasa, copia el reporte agregado a ../reportes/cobertura
 #
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -20,7 +21,11 @@ ROJO=$'\033[31m'; VERDE=$'\033[32m'; AMARILLO=$'\033[33m'; NEGRITA=$'\033[1m'; F
 [ -t 1 ] || { ROJO=""; VERDE=""; AMARILLO=""; NEGRITA=""; FIN=""; }
 
 RAPIDO=0
+PUBLICAR=0
 [ "${1:-}" = "--rapido" ] && RAPIDO=1
+[ "${1:-}" = "--publicar-reporte" ] && PUBLICAR=1
+REPORTE_AGREGADO=bootstrap/target/site/jacoco-aggregate
+DESTINO_REPORTE=../reportes/cobertura
 
 echo "${NEGRITA}== 1. Chequeo mecanico contra testing-rules.md ==${FIN}"
 
@@ -134,6 +139,8 @@ fi
 
 echo
 echo "${NEGRITA}== 2. Suite de pruebas solitarias + 3. umbrales de cobertura ==${FIN}"
+# Sin datos de corridas anteriores: un mvn verify previo deja en los .exec la ejecucion de los *IT.
+mvn -q clean > /dev/null 2>&1
 mkdir -p target
 LOG=target/verificacion-pruebas.log
 mvn test -Pcobertura > "$LOG" 2>&1
@@ -169,11 +176,22 @@ for m in domain application infrastructure bootstrap; do
         printf "  %-16s (sin reporte)\n" "$m"
     fi
 done
-echo "  Reporte HTML: <modulo>/target/site/jacoco/index.html"
+if [ -f "$REPORTE_AGREGADO/jacoco.csv" ]; then
+    awk -F, 'NR>1 {ml+=$8; cl+=$9; mr+=$6; cr+=$7}
+        END { printf "  %-16s linea %5.1f%%   rama %5.1f%%\n", "TOTAL", 100*cl/(cl+ml), 100*cr/(cr+mr) }' \
+        "$REPORTE_AGREGADO/jacoco.csv"
+fi
+echo "  Reporte HTML: $REPORTE_AGREGADO/index.html"
 
 echo
 if [ "$N_VIOLACIONES" -gt 0 ] || [ "$ESTADO_MVN" -ne 0 ]; then
     echo "${ROJO}${NEGRITA}FAIL${FIN} — corregir antes de entregar (reglas: testing-rules.md)."
     exit 1
+fi
+if [ "$PUBLICAR" = "1" ]; then
+    rm -rf "$DESTINO_REPORTE"
+    mkdir -p "$(dirname "$DESTINO_REPORTE")"
+    cp -R "$REPORTE_AGREGADO" "$DESTINO_REPORTE"
+    echo "  Reporte publicado en reportes/cobertura/index.html"
 fi
 echo "${VERDE}${NEGRITA}PASS${FIN} — reglas, suite y umbrales de cobertura en verde."

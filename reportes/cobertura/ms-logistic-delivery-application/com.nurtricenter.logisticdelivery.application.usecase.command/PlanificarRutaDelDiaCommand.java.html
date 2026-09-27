@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PlanificarRutaDelDiaCommand.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-application</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.application.usecase.command</a> &gt; <span class="el_source">PlanificarRutaDelDiaCommand.java</span></div><h1>PlanificarRutaDelDiaCommand.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.application.usecase.command;
+
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Comando de entrada de {@link PlanificarRutaDelDia}: el repartidor, el dia, el origen del recorrido
+ * y los paquetes a entregar (ya geolocalizados por el productor externo).
+ */
+<span class="fc" id="L10">public record PlanificarRutaDelDiaCommand(</span>
+        String repartidorId,
+        LocalDate fecha,
+        double origenLat,
+        double origenLon,
+        List&lt;Paquete&gt; paquetes) {
+
+    /** Un paquete a entregar con sus coordenadas ya resueltas. */
+<span class="fc" id="L18">    public record Paquete(String paqueteId, String pacienteId, double lat, double lon) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

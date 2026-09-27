@@ -3,6 +3,7 @@ package com.nurtricenter.logisticdelivery.flujo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -30,6 +31,7 @@ class LecturaReadModelIT {
     @Autowired
     ObjectMapper json;
 
+    @Tag("flujo-a")
     @Test
     @DisplayName("HU-6 · flujo correcto: el read model se alimenta de los eventos y las consultas responden")
     void confirmarEntregaAlimentaElReadModelYLasConsultasResponden() throws Exception {

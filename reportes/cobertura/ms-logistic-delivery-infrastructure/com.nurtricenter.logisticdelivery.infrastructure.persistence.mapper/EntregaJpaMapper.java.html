@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>EntregaJpaMapper.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.persistence.mapper</a> &gt; <span class="el_source">EntregaJpaMapper.java</span></div><h1>EntregaJpaMapper.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.persistence.mapper;
+
+import com.nurtricenter.logisticdelivery.domain.entrega.ConstanciaDeEntrega;
+import com.nurtricenter.logisticdelivery.domain.entrega.Entrega;
+import com.nurtricenter.logisticdelivery.domain.entrega.EstadoEntrega;
+import com.nurtricenter.logisticdelivery.domain.entrega.Intentos;
+import com.nurtricenter.logisticdelivery.domain.entrega.MotivoFallo;
+import com.nurtricenter.logisticdelivery.domain.shared.EntregaId;
+import com.nurtricenter.logisticdelivery.domain.shared.Geolocalizacion;
+import com.nurtricenter.logisticdelivery.domain.shared.PacienteId;
+import com.nurtricenter.logisticdelivery.domain.shared.PaqueteId;
+import com.nurtricenter.logisticdelivery.domain.shared.RutaId;
+import com.nurtricenter.logisticdelivery.domain.shared.Url;
+import com.nurtricenter.logisticdelivery.infrastructure.persistence.entity.EntregaJpaEntity;
+import org.springframework.stereotype.Component;
+
+/**
+ * Mapeo a mano entre el agregado {@code Entrega} y su entidad JPA. Al leer usa
+ * {@code Entrega.reconstituir(...)}; la constancia (HU-4) y el motivo de fallo (HU-5)
+ * viven en columnas nulas segun el estado.
+ */
+@Component
+<span class="fc" id="L23">public class EntregaJpaMapper {</span>
+
+    /** JPA -&gt; dominio. */
+    public Entrega toDomain(EntregaJpaEntity e) {
+<span class="fc" id="L27">        Intentos intentos = new Intentos(e.getIntentosValor(), e.getIntentosMaximo());</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        MotivoFallo motivo = e.getMotivoFallo() == null ? null : MotivoFallo.valueOf(e.getMotivoFallo());</span>
+<span class="fc" id="L29">        ConstanciaDeEntrega constancia = toConstancia(e);</span>
+
+<span class="fc" id="L31">        return Entrega.reconstituir(</span>
+<span class="fc" id="L32">                new EntregaId(e.getId()),</span>
+<span class="fc" id="L33">                PaqueteId.de(e.getPaqueteId()),</span>
+<span class="fc" id="L34">                PacienteId.de(e.getPacienteId()),</span>
+<span class="fc" id="L35">                new RutaId(e.getRutaId()),</span>
+<span class="fc" id="L36">                EstadoEntrega.valueOf(e.getEstado()),</span>
+                intentos,
+                motivo,
+                constancia);
+    }
+
+    private ConstanciaDeEntrega toConstancia(EntregaJpaEntity e) {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (e.getConstanciaTimestamp() == null) {</span>
+<span class="fc" id="L44">            return null;</span>
+        }
+<span class="fc" id="L46">        return new ConstanciaDeEntrega(</span>
+<span class="fc" id="L47">                e.getConstanciaTimestamp(),</span>
+<span class="fc" id="L48">                new Geolocalizacion(e.getConstanciaLat(), e.getConstanciaLon()),</span>
+<span class="fc" id="L49">                Url.de(e.getConstanciaUrl()),</span>
+<span class="fc" id="L50">                e.getConstanciaReceptor());</span>
+    }
+
+    /** Dominio -&gt; nueva entidad JPA (caso de alta). */
+    public EntregaJpaEntity toNewEntity(Entrega entrega) {
+<span class="fc" id="L55">        EntregaJpaEntity e = new EntregaJpaEntity(</span>
+<span class="fc" id="L56">                entrega.id().valor(),</span>
+<span class="fc" id="L57">                entrega.paqueteId().valor(),</span>
+<span class="fc" id="L58">                entrega.pacienteId().valor(),</span>
+<span class="fc" id="L59">                entrega.rutaId().valor(),</span>
+<span class="fc" id="L60">                entrega.estado().name(),</span>
+<span class="fc" id="L61">                entrega.intentos().valor(),</span>
+<span class="fc" id="L62">                entrega.intentos().maximo());</span>
+<span class="fc" id="L63">        copiarCamposMutables(e, entrega);</span>
+<span class="fc" id="L64">        return e;</span>
+    }
+
+    /** Copia el estado del agregado sobre una entidad JPA administrada, preservando su {@code @Version}. */
+    public void copiarEstado(EntregaJpaEntity e, Entrega entrega) {
+<span class="fc" id="L69">        e.setEstado(entrega.estado().name());</span>
+<span class="fc" id="L70">        e.setIntentosValor(entrega.intentos().valor());</span>
+<span class="fc" id="L71">        e.setIntentosMaximo(entrega.intentos().maximo());</span>
+<span class="fc" id="L72">        copiarCamposMutables(e, entrega);</span>
+<span class="fc" id="L73">    }</span>
+
+    private void copiarCamposMutables(EntregaJpaEntity e, Entrega entrega) {
+<span class="fc" id="L76">        e.setMotivoFallo(entrega.motivoFallo().map(MotivoFallo::name).orElse(null));</span>
+
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (entrega.constancia().isPresent()) {</span>
+<span class="fc" id="L79">            ConstanciaDeEntrega c = entrega.constancia().get();</span>
+<span class="fc" id="L80">            e.setConstanciaTimestamp(c.timestamp());</span>
+<span class="fc" id="L81">            e.setConstanciaLat(c.geolocalizacion().lat());</span>
+<span class="fc" id="L82">            e.setConstanciaLon(c.geolocalizacion().lon());</span>
+<span class="fc" id="L83">            e.setConstanciaUrl(c.urlEvidencia().valor());</span>
+<span class="fc" id="L84">            e.setConstanciaReceptor(c.nombreReceptor());</span>
+<span class="fc" id="L85">        } else {</span>
+<span class="fc" id="L86">            e.setConstanciaTimestamp(null);</span>
+<span class="fc" id="L87">            e.setConstanciaLat(null);</span>
+<span class="fc" id="L88">            e.setConstanciaLon(null);</span>
+<span class="fc" id="L89">            e.setConstanciaUrl(null);</span>
+<span class="fc" id="L90">            e.setConstanciaReceptor(null);</span>
+        }
+<span class="fc" id="L92">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

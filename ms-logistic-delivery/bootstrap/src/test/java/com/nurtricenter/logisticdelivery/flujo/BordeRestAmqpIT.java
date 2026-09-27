@@ -8,6 +8,7 @@ import com.nurtricenter.logisticdelivery.infrastructure.messaging.RabbitTopology
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.message.PaquetesListosParaEntregaMessage;
 import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Los adaptadores de borde REST y AMQP, y el mapeo de errores a {@code application/problem+json}. Levanta PostGIS y RabbitMQ con Testcontainers.
  */
+@Tag("flujo-a")
 @PruebaDeIntegracion
 class BordeRestAmqpIT {
 

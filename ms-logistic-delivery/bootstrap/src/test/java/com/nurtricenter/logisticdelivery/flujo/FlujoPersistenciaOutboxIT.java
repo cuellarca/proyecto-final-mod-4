@@ -13,6 +13,7 @@ import com.nurtricenter.logisticdelivery.infrastructure.outbox.OutboxJpaEntity;
 import com.nurtricenter.logisticdelivery.infrastructure.outbox.OutboxJpaRepository;
 import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ruta y las entregas) y confirmar una entrega deja la {@code Entrega} ENTREGADA con su constancia y
  * una fila {@code EntregaConfirmada} en el Outbox, en la misma transaccion. Levanta PostGIS con Testcontainers.
  */
+@Tag("flujo-a")
 @PruebaDeIntegracion
 class FlujoPersistenciaOutboxIT {
 

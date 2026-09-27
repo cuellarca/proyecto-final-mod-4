@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PublicadorOutboxScheduler.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-infrastructure</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.infrastructure.outbox</a> &gt; <span class="el_source">PublicadorOutboxScheduler.java</span></div><h1>PublicadorOutboxScheduler.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.infrastructure.outbox;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nurtricenter.logisticdelivery.infrastructure.messaging.EventoIntegracion;
+import com.nurtricenter.logisticdelivery.infrastructure.messaging.RabbitTopologyConfig;
+import com.nurtricenter.logisticdelivery.infrastructure.messaging.RoutingKeys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Limit;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
+
+/**
+ * Publicador del Outbox: cada cierto intervalo drena las filas pendientes hacia RabbitMQ (serializa
+ * el sobre {@link EventoIntegracion}, publica al exchange con la routing key del tipo y marca la fila
+ * como publicada). Si la publicacion falla, la fila queda pendiente y se reintenta en el proximo
+ * ciclo (entrega al-menos-una-vez; los consumidores deduplican por {@code eventId}).
+ */
+@Component
+public class PublicadorOutboxScheduler {
+
+<span class="fc" id="L29">    private static final Logger log = LoggerFactory.getLogger(PublicadorOutboxScheduler.class);</span>
+
+    private final OutboxJpaRepository outbox;
+    private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
+    private final Clock clock;
+    private final int batchSize;
+
+    public PublicadorOutboxScheduler(OutboxJpaRepository outbox, RabbitTemplate rabbitTemplate,
+                                     ObjectMapper objectMapper, Clock clock,
+<span class="fc" id="L39">                                     @Value(&quot;${logistic.outbox.batch-size:50}&quot;) int batchSize) {</span>
+<span class="fc" id="L40">        this.outbox = outbox;</span>
+<span class="fc" id="L41">        this.rabbitTemplate = rabbitTemplate;</span>
+<span class="fc" id="L42">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L43">        this.clock = clock;</span>
+<span class="fc" id="L44">        this.batchSize = batchSize;</span>
+<span class="fc" id="L45">    }</span>
+
+    @Scheduled(fixedDelayString = &quot;${logistic.outbox.poll-delay-ms:2000}&quot;)
+    public void drenar() {
+<span class="fc" id="L49">        List&lt;OutboxJpaEntity&gt; pendientes = outbox.findByPublishedFalseOrderByCreatedAtAsc(Limit.of(batchSize));</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">        if (pendientes.isEmpty()) {</span>
+<span class="nc" id="L51">            return;</span>
+        }
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        for (OutboxJpaEntity fila : pendientes) {</span>
+            try {
+<span class="fc" id="L55">                publicar(fila);</span>
+<span class="fc" id="L56">                fila.marcarPublicada(Instant.now(clock));</span>
+<span class="fc" id="L57">                outbox.save(fila);</span>
+<span class="fc" id="L58">            } catch (Exception e) {</span>
+<span class="fc" id="L59">                log.warn(&quot;[outbox] no se pudo publicar {} ({}); se reintentara. Causa: {}&quot;,</span>
+<span class="fc" id="L60">                        fila.getEventType(), fila.getId(), e.toString());</span>
+<span class="fc" id="L61">            }</span>
+<span class="fc" id="L62">        }</span>
+<span class="fc" id="L63">    }</span>
+
+    private void publicar(OutboxJpaEntity fila) throws Exception {
+<span class="fc" id="L66">        JsonNode payload = objectMapper.readTree(fila.getPayload());</span>
+<span class="fc" id="L67">        EventoIntegracion sobre = new EventoIntegracion(</span>
+<span class="fc" id="L68">                fila.getId().toString(),</span>
+<span class="fc" id="L69">                fila.getEventType(),</span>
+<span class="fc" id="L70">                fila.getOccurredAt(),</span>
+                EventoIntegracion.VERSION_ACTUAL,
+                payload);
+<span class="fc" id="L73">        String routingKey = RoutingKeys.paraTipo(fila.getEventType());</span>
+<span class="fc" id="L74">        rabbitTemplate.convertAndSend(RabbitTopologyConfig.EXCHANGE, routingKey, sobre);</span>
+<span class="fc" id="L75">        log.info(&quot;[outbox] publicado {} ({}) -&gt; rk={}&quot;, fila.getEventType(), fila.getId(), routingKey);</span>
+<span class="fc" id="L76">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

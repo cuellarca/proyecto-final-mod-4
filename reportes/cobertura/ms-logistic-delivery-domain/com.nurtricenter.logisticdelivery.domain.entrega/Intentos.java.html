@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>Intentos.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">ms-logistic-delivery :: bootstrap</a> &gt; <a href="../index.html" class="el_bundle">ms-logistic-delivery-domain</a> &gt; <a href="index.source.html" class="el_package">com.nurtricenter.logisticdelivery.domain.entrega</a> &gt; <span class="el_source">Intentos.java</span></div><h1>Intentos.java</h1><pre class="source lang-java linenums">package com.nurtricenter.logisticdelivery.domain.entrega;
+
+import com.nurtricenter.logisticdelivery.domain.shared.DomainException;
+
+/**
+ * Contador de reintentos de una entrega (Value Object inmutable).
+ * Encapsula la regla del reintento; lo consume el {@code PoliticaDeReintento}.
+ *
+ * @param valor  reintentos ya consumidos
+ * @param maximo tope de reintentos permitidos
+ */
+public record Intentos(int valor, int maximo) {
+
+<span class="fc" id="L14">    public Intentos {</span>
+<span class="fc bfc" id="L15" title="All 2 branches covered.">        if (maximo &lt; 1) {</span>
+<span class="fc" id="L16">            throw new DomainException(&quot;El maximo de reintentos debe ser &gt;= 1&quot;);</span>
+        }
+<span class="pc bpc" id="L18" title="1 of 2 branches missed.">        if (valor &lt; 0) {</span>
+<span class="nc" id="L19">            throw new DomainException(&quot;El contador de intentos no puede ser negativo&quot;);</span>
+        }
+<span class="pc bpc" id="L21" title="1 of 2 branches missed.">        if (valor &gt; maximo) {</span>
+<span class="nc" id="L22">            throw new DomainException(&quot;Los intentos consumidos no pueden superar el maximo&quot;);</span>
+        }
+<span class="fc" id="L24">    }</span>
+
+    /** Contador recien creado, sin reintentos consumidos. */
+    public static Intentos inicial(int maximo) {
+<span class="fc" id="L28">        return new Intentos(0, maximo);</span>
+    }
+
+    /** Queda saldo mientras no se alcance el maximo. */
+    public boolean haySaldo() {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        return valor &lt; maximo;</span>
+    }
+
+    /** Devuelve un nuevo contador con un reintento mas (falla si no hay saldo). */
+    public Intentos incrementar() {
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (!haySaldo()) {</span>
+<span class="fc" id="L39">            throw new DomainException(&quot;No quedan reintentos disponibles&quot;);</span>
+        }
+<span class="fc" id="L41">        return new Intentos(valor + 1, maximo);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

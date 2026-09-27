@@ -23,7 +23,8 @@ cómo se arregla. No se negocia el veredicto con el usuario ni se lo suaviza.
 
 1. Leé `integration-testing-rules.md`.
 2. **Chequeo mecánico:** corré `./scripts/verificar-integracion.sh`. Cubre las precondiciones de
-   Docker, Q1–Q6, NOMBRES, la matriz frontera × flujo y la suite de failsafe.
+   Docker, Q1–Q6, NOMBRES, la matriz frontera × flujo, la suite de failsafe y la matriz por flujo
+   (cada flujo de FLUJOS con su prueba de punta a punta y sus clases en verde).
 3. **Juicio sobre lo que la máquina no ve** — leyendo cada prueba nueva o modificada:
    - **I1** ¿cruza de verdad una frontera, o es una prueba solitaria disfrazada de `IT`?
    - **I2** ¿la frontera quedó con su flujo correcto **y** su flujo incorrecto?
@@ -47,6 +48,9 @@ Chequeo mecánico:  <N> archivos, <N> violaciones
 
 Matriz frontera × flujo:
   <n>. <frontera>  correcto <SI|NO>  incorrecto <SI|NO>
+
+Matriz por flujo:
+  <flujo>  punta a punta <SI|NO>  clases en verde <N>/<N>
 
 Juicio por regla:
   <ClaseIT#metodo>  I<n>  <OK | violación y por qué>

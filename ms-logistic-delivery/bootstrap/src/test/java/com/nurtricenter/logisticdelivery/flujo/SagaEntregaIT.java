@@ -14,6 +14,7 @@ import com.nurtricenter.logisticdelivery.infrastructure.messaging.CateringStubLi
 import com.nurtricenter.logisticdelivery.infrastructure.messaging.NotificacionesStubListener;
 import com.nurtricenter.logisticdelivery.support.PruebaDeIntegracion;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -53,6 +54,7 @@ class SagaEntregaIT {
         return plan.entregas().get(0).entregaId();
     }
 
+    @Tag("flujo-a")
     @Test
     @DisplayName("HU-4 · flujo correcto: EntregaConfirmada llega a ms-notificaciones por RabbitMQ")
     void entregaConfirmadaLlegaAMsNotificaciones() {
@@ -70,6 +72,7 @@ class SagaEntregaIT {
                         }));
     }
 
+    @Tag("flujo-b")
     @Test
     @DisplayName("HU-5 · flujo incorrecto: agotados los reintentos la saga termina en ms-catering como no concretada")
     void sagaDeFalloTerminaEnMsCateringComoNoConcretada() {

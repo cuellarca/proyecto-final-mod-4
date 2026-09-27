@@ -55,11 +55,13 @@ Los tres scripts son la parte no-negociable del harness:
 ```
 
 `verificar-pruebas.sh` hace tres cosas: chequeo mecánico de las RESTRICCIONES y los NOMBRES sobre las
-pruebas solitarias, ejecución de la suite (surefire) y verificación de los umbrales de JaCoCo.
+pruebas solitarias, ejecución de la suite (surefire) y verificación de los umbrales de JaCoCo. Con
+`--publicar-reporte` copia el reporte agregado de cobertura a `reportes/cobertura/`.
 
-`verificar-integracion.sh` hace cuatro: comprueba que Testcontainers tenga un Docker usable, aplica
+`verificar-integracion.sh` hace cinco: comprueba que Testcontainers tenga un Docker usable, aplica
 Q1–Q6 y NOMBRES sobre los `*IT`, verifica que cada frontera tenga su flujo correcto **y** su flujo
-incorrecto, y corre la suite sociable con failsafe. Con `--con-postman` agrega la colección Postman
+incorrecto, corre la suite sociable con failsafe y muestra la matriz por flujo de negocio (flujo A,
+entrega exitosa; flujo B, entrega no concretada). Con `--con-postman` agrega la colección Postman
 con newman contra el stack levantado.
 
 `verificar-contratos.sh` hace cinco: precondiciones, K2–K7 y NOMBRES sobre los dos lados del

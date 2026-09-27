@@ -5,7 +5,7 @@
 # Hace cumplir integration-testing-rules.md sin depender de que alguien se acuerde de las reglas:
 #   1. precondiciones: un entorno Docker que Testcontainers pueda usar
 #   2. chequeo mecanico de las RESTRICCIONES (Q1-Q6), NOMBRES y la matriz frontera x flujo
-#   3. ejecuta la suite de pruebas sociables (failsafe, mvn verify)
+#   3. ejecuta la suite de pruebas sociables (failsafe, mvn verify) y la matriz por flujo (A y B)
 #   4. opcional: la coleccion Postman contra el stack levantado (newman)
 #
 # Lo corre la persona que programa, el skill integration-test-writer al terminar y el skill
@@ -171,6 +171,58 @@ if [ "$ESTADO_MVN" -ne 0 ]; then
 fi
 fi
 
+# --- Matriz por flujo --------------------------------------------------------------------------
+# Los flujos, sus tags y su prueba de punta a punta salen de la tabla FLUJOS del archivo de reglas.
+echo
+echo "${NEGRITA}== Matriz por flujo (seccion FLUJOS de $REGLAS) ==${FIN}"
+
+clases_it_de() {  # una clase *IT, o las *IT que extienden una clase base *Tests
+    local archivo="$1" clase
+    clase=$(basename "$archivo" .java)
+    case "$clase" in
+        *IT) echo "$clase" ;;
+        *) printf '%s\n' "$ARCHIVOS" | xargs grep -l "extends ${clase}" 2>/dev/null \
+               | xargs -n1 basename 2>/dev/null | sed 's/\.java$//' ;;
+    esac
+}
+
+en_verde() {  # 0 si failsafe dejo el reporte de la clase sin fallos ni errores
+    local reporte
+    reporte=$(ls bootstrap/target/failsafe-reports/TEST-*."$1".xml 2>/dev/null | head -1)
+    [ -n "$reporte" ] && grep -q 'failures="0"' "$reporte" && grep -q 'errors="0"' "$reporte"
+}
+
+FALTANTES_FLUJO=0
+while IFS='|' read -r _ nombre tag _ punta _; do
+    tag=$(echo "$tag" | tr -d ' `')
+    case "$tag" in flujo-*) ;; *) continue ;; esac
+    nombre=$(echo "$nombre" | sed -e 's/^ *//' -e 's/ *$//')
+    punta=$(echo "$punta" | tr -d ' `')
+
+    clases=$(printf '%s\n' "$ARCHIVOS" | xargs grep -l "@Tag(\"${tag}\")" 2>/dev/null \
+        | while read -r f; do clases_it_de "$f"; done | sort -u)
+    n=$(printf '%s\n' "$clases" | grep -c . )
+
+    marca_punta="${ROJO}NO${FIN}"
+    if printf '%s\n' "$clases" | grep -qx "$punta"; then marca_punta="SI"; else FALTANTES_FLUJO=$((FALTANTES_FLUJO + 1)); fi
+    [ "$n" -gt 0 ] || FALTANTES_FLUJO=$((FALTANTES_FLUJO + 1))
+
+    resultado=""
+    if [ "$RAPIDO" = "0" ]; then
+        verdes=0
+        for c in $clases; do en_verde "$c" && verdes=$((verdes + 1)); done
+        resultado="  ·  en verde ${verdes}/${n}"
+        [ "$verdes" -eq "$n" ] || FALTANTES_FLUJO=$((FALTANTES_FLUJO + 1))
+    fi
+    printf "  %-28s (%s)  punta a punta %s %s  ·  clases %d%s\n" \
+        "$nombre" "$tag" "$punta" "$marca_punta" "$n" "$resultado"
+    printf '%s\n' "$clases" | paste -sd, - | sed -e 's/,/, /g' -e 's/^/      /'
+done < "$REGLAS"
+
+if [ "$FALTANTES_FLUJO" -gt 0 ]; then
+    echo "${ROJO}  Hay flujos sin su prueba de punta a punta, sin pruebas o con pruebas en rojo.${FIN}"
+fi
+
 # --- 4. Coleccion Postman (opcional) -----------------------------------------------------------
 ESTADO_POSTMAN=0
 if [ "$POSTMAN" = "1" ]; then
@@ -190,7 +242,8 @@ if [ "$POSTMAN" = "1" ]; then
 fi
 
 echo
-if [ "$N_VIOLACIONES" -gt 0 ] || [ "$FALTANTES" -gt 0 ] || [ "$ESTADO_MVN" -ne 0 ] || [ "$ESTADO_POSTMAN" -ne 0 ]; then
+if [ "$N_VIOLACIONES" -gt 0 ] || [ "$FALTANTES" -gt 0 ] || [ "$FALTANTES_FLUJO" -gt 0 ] \
+   || [ "$ESTADO_MVN" -ne 0 ] || [ "$ESTADO_POSTMAN" -ne 0 ]; then
     echo "${ROJO}${NEGRITA}FAIL${FIN} — corregir antes de entregar (reglas: $REGLAS)."
     exit 1
 fi
@@ -198,5 +251,5 @@ if [ "$RAPIDO" = "1" ]; then
     echo "${VERDE}${NEGRITA}PASS${FIN} — precondiciones, reglas y matriz en verde."
     echo "${AMARILLO}(--rapido: la suite de failsafe no se ejecuto)${FIN}"
 else
-    echo "${VERDE}${NEGRITA}PASS${FIN} — precondiciones, reglas, matriz y suite de integracion en verde."
+    echo "${VERDE}${NEGRITA}PASS${FIN} — precondiciones, reglas, matrices y suite de integracion en verde."
 fi
