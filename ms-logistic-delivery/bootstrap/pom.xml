@@ -57,6 +57,12 @@
             <artifactId>rabbitmq</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Verificacion del contrato Pact contra la aplicacion real (contract-testing-rules.md). -->
+        <dependency>
+            <groupId>au.com.dius.pact.provider</groupId>
+            <artifactId>junit5spring</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

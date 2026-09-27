@@ -11,9 +11,12 @@ COPY domain/pom.xml          domain/pom.xml
 COPY application/pom.xml     application/pom.xml
 COPY infrastructure/pom.xml  infrastructure/pom.xml
 COPY bootstrap/pom.xml       bootstrap/pom.xml
+# El consumidor simulado del contrato Pact no entra en la imagen, pero el pom raiz lo declara como
+# modulo: Maven necesita su pom para armar el reactor. Con -pl bootstrap -am no se compila.
+COPY consumidor-app-repartidor/pom.xml consumidor-app-repartidor/pom.xml
 
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -ntp dependency:go-offline -Dmaven.test.skip=true || true
+    mvn -B -ntp dependency:go-offline -Dmaven.test.skip=true -pl bootstrap -am || true
 
 COPY domain          domain
 COPY application     application
@@ -21,7 +24,7 @@ COPY infrastructure  infrastructure
 COPY bootstrap       bootstrap
 
 RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -ntp clean package -Dmaven.test.skip=true
+    mvn -B -ntp clean package -Dmaven.test.skip=true -pl bootstrap -am
 
 RUN cp bootstrap/target/ms-logistic-delivery-exec.jar app.jar \
  && java -Djarmode=tools -jar app.jar extract --layers --destination /extracted

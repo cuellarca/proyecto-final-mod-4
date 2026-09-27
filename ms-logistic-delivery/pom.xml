@@ -19,6 +19,9 @@
         <module>domain</module>
         <module>application</module>
         <module>infrastructure</module>
+        <!-- Consumidor simulado del contrato Pact (Tarea 3). Va antes de bootstrap para que el
+             pacto exista cuando el provider lo verifica en la misma corrida de mvn verify. -->
+        <module>consumidor-app-repartidor</module>
         <module>bootstrap</module>
     </modules>
 
@@ -33,6 +36,7 @@
         <jts.version>1.20.0</jts.version>
         <junit.version>5.11.4</junit.version>
         <jacoco.version>0.8.13</jacoco.version>
+        <pact.version>4.6.21</pact.version>
 
         <!-- Version de la API de Docker que docker-java negocia con el daemon. Sin fijarla, la
              libreria pide una version antigua y los Engine recientes responden 400. Overridable:
@@ -82,6 +86,18 @@
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
                 <version>${jts.version}</version>
+            </dependency>
+
+            <!-- Pact JVM: contract testing (Tarea 3, contract-testing-rules.md) -->
+            <dependency>
+                <groupId>au.com.dius.pact.consumer</groupId>
+                <artifactId>junit5</artifactId>
+                <version>${pact.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>au.com.dius.pact.provider</groupId>
+                <artifactId>junit5spring</artifactId>
+                <version>${pact.version}</version>
             </dependency>
 
             <!-- Modulos internos -->
@@ -166,6 +182,9 @@
                     <configuration>
                         <systemPropertyVariables>
                             <api.version>${docker.api.version}</api.version>
+                            <!-- Pact JVM manda telemetria anonima a un servicio externo: una prueba no
+                                 hace llamadas salientes que no estan bajo prueba. -->
+                            <pact_do_not_track>true</pact_do_not_track>
                         </systemPropertyVariables>
                     </configuration>
                 </plugin>

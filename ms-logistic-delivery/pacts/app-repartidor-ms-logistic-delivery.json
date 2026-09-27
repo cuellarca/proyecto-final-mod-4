@@ -1,0 +1,204 @@
+{
+  "consumer": {
+    "name": "app-repartidor"
+  },
+  "interactions": [
+    {
+      "description": "una consulta de las rutas del dia del repartidor",
+      "providerStates": [
+        {
+          "name": "el repartidor tiene una ruta planificada para la fecha",
+          "params": {
+            "fecha": "2026-10-05",
+            "repartidorId": "rep-pact-app-repartidor"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/repartidores/rep-pact-app-repartidor/rutas",
+        "query": {
+          "fecha": [
+            "2026-10-05"
+          ]
+        }
+      },
+      "response": {
+        "body": [
+          {
+            "estado": "PLANIFICADA",
+            "fecha": "2026-10-05",
+            "paradas": [
+              {
+                "estado": "PENDIENTE",
+                "lat": -17.79,
+                "lon": -63.19,
+                "orden": 1,
+                "paradaId": "e2490de5-5bd3-43d5-b7c4-526e33f71304"
+              }
+            ],
+            "rutaId": "e2490de5-5bd3-43d5-b7c4-526e33f71304"
+          }
+        ],
+        "generators": {
+          "body": {
+            "$[*].paradas[*].paradaId": {
+              "type": "Uuid"
+            },
+            "$[*].rutaId": {
+              "type": "Uuid"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$[*].estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "PLANIFICADA|EN_CURSO|FINALIZADA"
+                }
+              ]
+            },
+            "$[*].fecha": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "yyyy-MM-dd",
+                  "match": "date"
+                }
+              ]
+            },
+            "$[*].paradas": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$[*].paradas[*].estado": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "PENDIENTE|EN_CURSO|COMPLETADA|FALLIDA"
+                }
+              ]
+            },
+            "$[*].paradas[*].lat": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$[*].paradas[*].lon": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$[*].paradas[*].orden": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$[*].paradas[*].paradaId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$[*].rutaId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;.*)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "la confirmacion de una entrega con su constancia",
+      "providerStates": [
+        {
+          "name": "hay una entrega pendiente de confirmar"
+        }
+      ],
+      "request": {
+        "body": {
+          "lat": -17.79,
+          "lon": -63.19,
+          "nombreReceptor": "Ana Rojas",
+          "urlEvidencia": "https://evidencias.nurtricenter.com/pact.jpg"
+        },
+        "generators": {
+          "path": {
+            "dataType": "STRING",
+            "expression": "/api/v1/entregas/${entregaId}/confirmacion",
+            "type": "ProviderState"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/v1/entregas/3f0c9a4e-6d1b-4b8e-9c5a-2e7f1d0b8a61/confirmacion"
+      },
+      "response": {
+        "status": 204
+      }
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.6.21"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "ms-logistic-delivery"
+  }
+}

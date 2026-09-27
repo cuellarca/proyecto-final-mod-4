@@ -1,0 +1,38 @@
+package com.nurtricenter.apprepartidor.logistica;
+
+// Archivo de violaciones deliberadas de contract-testing-rules.md: una por regla mecanica.
+// Sirve para ver fallar a scripts/verificar-contratos.sh. La extension .ejemplo lo deja fuera del
+// build; para validar el script se copia como .java, se corre con --rapido y se borra.
+@ExtendWith(PactConsumerTestExt.class)
+@PactTestFor(providerName = "ms-logistic-delivery", pactVersion = PactSpecVersion.V3)
+class EjemploViolacionesPactTest {
+
+    @Pact(consumer = "app-repartidor")
+    public RequestResponsePact sinEstadoYConDosInteracciones(PactDslWithProvider builder) {
+        return builder
+                .uponReceiving("primera")
+                    .method("GET").path("/api/v1/repartidores/rep-1/rutas")
+                .willRespondWith()
+                    .status(200)
+                    .body("[{\"rutaId\":\"r-1\"}]")
+                .uponReceiving("segunda")
+                    .method("GET").path("/api/v1/entregas/e-1/constancia")
+                .willRespondWith()
+                    .status(200)
+                    .body(newJsonBody(o -> o.stringValue("nombreReceptor", "Ana")).build())
+                .toPact();
+    }
+
+    @Test
+    @PactTestFor(pactMethod = "sinEstadoYConDosInteracciones")
+    void testClienteContraUnaUrlFija(MockServer mockServer) {
+        new ClienteLogistica("http://localhost:8080").rutasDelDia("rep-1", LocalDate.of(2026, 10, 5));
+    }
+
+    @Disabled
+    @Test
+    @DisplayName("la app obtiene algo")
+    void pruebaDesactivadaSinCausa(MockServer mockServer) {
+        assertThat(new ClienteLogistica(mockServer.getUrl())).isNotNull();
+    }
+}

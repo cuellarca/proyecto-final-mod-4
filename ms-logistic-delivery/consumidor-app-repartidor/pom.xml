@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.nurtricenter</groupId>
+        <artifactId>ms-logistic-delivery-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ms-logistic-delivery-consumidor-app-repartidor</artifactId>
+    <packaging>jar</packaging>
+
+    <name>ms-logistic-delivery :: consumidor app-repartidor (Pact)</name>
+    <description>
+        Consumidor simulado de la API: el cliente HTTP de la app del repartidor y sus pruebas de
+        contrato Pact (lado consumer). No depende de ningun modulo del microservicio: solo conoce
+        la API a traves del contrato. Genera ../pacts/app-repartidor-ms-logistic-delivery.json.
+    </description>
+
+    <dependencies>
+        <!-- RestClient: el cliente HTTP real que usaria la app. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>au.com.dius.pact.consumer</groupId>
+            <artifactId>junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- El pacto se escribe fuera de target/, en la carpeta versionada que lee el
+                             provider (@PactFolder). overwrite: cada corrida reemplaza el archivo en
+                             lugar de mezclarse con interacciones viejas que ya no existen. -->
+                        <pact.rootDir>${project.basedir}/../pacts</pact.rootDir>
+                        <pact.writer.overwrite>true</pact.writer.overwrite>
+                        <!-- Sin telemetria anonima de Pact: la prueba no hace llamadas salientes. -->
+                        <pact_do_not_track>true</pact_do_not_track>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

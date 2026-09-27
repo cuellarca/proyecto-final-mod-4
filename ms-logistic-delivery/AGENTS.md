@@ -6,7 +6,7 @@ las contienen.
 
 ## Contrato de pruebas
 
-Las reglas de prueba del microservicio están en dos archivos, uno por tipo de prueba. Son la única
+Las reglas de prueba del microservicio están en tres archivos, uno por tipo de prueba. Son la única
 fuente: no las repitas en un prompt, no las reinventes por conversación y no crees una copia en otro
 archivo.
 
@@ -14,6 +14,7 @@ archivo.
 |---|---|---|
 | Solitaria (`*Test`) | [`testing-rules.md`](testing-rules.md) | `./scripts/verificar-pruebas.sh` |
 | Sociable / integración (`*IT`) | [`integration-testing-rules.md`](integration-testing-rules.md) | `./scripts/verificar-integracion.sh` |
+| Contrato Pact (`*PactTest` consumer, `*PactIT` provider) | [`contract-testing-rules.md`](contract-testing-rules.md) | `./scripts/verificar-contratos.sh` |
 
 Antes de escribir o modificar una sola prueba:
 
@@ -24,7 +25,7 @@ Antes de escribir o modificar una sola prueba:
 
 ## Skills
 
-En Claude Code el flujo está empaquetado en cuatro skills que leen esos mismos archivos:
+En Claude Code el flujo está empaquetado en seis skills que leen esos mismos archivos:
 
 | Skill | Definición | Rol |
 |---|---|---|
@@ -32,13 +33,15 @@ En Claude Code el flujo está empaquetado en cuatro skills que leen esos mismos 
 | `test-checker` | [`.claude/skills/test-checker/SKILL.md`](.claude/skills/test-checker/SKILL.md) | Verifica contra las mismas reglas; PASS/FAIL, sin negociación |
 | `integration-test-writer` | [`.claude/skills/integration-test-writer/SKILL.md`](.claude/skills/integration-test-writer/SKILL.md) | Genera pruebas de integración según `integration-testing-rules.md` |
 | `integration-test-checker` | [`.claude/skills/integration-test-checker/SKILL.md`](.claude/skills/integration-test-checker/SKILL.md) | Verifica los `*IT` contra ese contrato; PASS/FAIL, sin negociación |
+| `pact-writer` | [`.claude/skills/pact-writer/SKILL.md`](.claude/skills/pact-writer/SKILL.md) | Genera interacciones del contrato (consumer) y su `@State` (provider) según `contract-testing-rules.md` |
+| `pact-checker` | [`.claude/skills/pact-checker/SKILL.md`](.claude/skills/pact-checker/SKILL.md) | Verifica el contrato y que el provider lo cumpla; PASS/FAIL, sin negociación |
 
 Un agente sin soporte de skills obtiene el mismo comportamiento leyendo esos `SKILL.md` como
 instrucciones y ejecutando el script de verificación que corresponda.
 
 ## Entorno validado
 
-Los dos scripts son la parte no-negociable del harness:
+Los tres scripts son la parte no-negociable del harness:
 
 ```bash
 ./scripts/verificar-pruebas.sh              # reglas + suite solitaria + umbrales de cobertura
@@ -46,6 +49,9 @@ Los dos scripts son la parte no-negociable del harness:
 
 ./scripts/verificar-integracion.sh          # Docker + reglas + matriz frontera×flujo + suite *IT
 ./scripts/verificar-integracion.sh --rapido # sin Maven: precondiciones y chequeo mecánico
+
+./scripts/verificar-contratos.sh            # reglas + consumer regenera el pacto + verificación del provider
+./scripts/verificar-contratos.sh --rapido   # sin Maven: chequeo mecánico y análisis del pacto en disco
 ```
 
 `verificar-pruebas.sh` hace tres cosas: chequeo mecánico de las RESTRICCIONES y los NOMBRES sobre las
@@ -56,16 +62,23 @@ Q1–Q6 y NOMBRES sobre los `*IT`, verifica que cada frontera tenga su flujo cor
 incorrecto, y corre la suite sociable con failsafe. Con `--con-postman` agrega la colección Postman
 con newman contra el stack levantado.
 
-Ambos devuelven 0 solo si todos sus pasos pasan.
+`verificar-contratos.sh` hace cinco: precondiciones, K2–K7 y NOMBRES sobre los dos lados del
+contrato, regeneración del pacto por el consumer (y comprobación de que no difiera del versionado,
+K1), análisis del pacto (≥ 2 interacciones, cada estado con su `@State`, cada método del cliente
+cubierto) y verificación del provider contra la aplicación real.
+
+Los tres devuelven 0 solo si todos sus pasos pasan.
 
 ## Estructura
 
 Microservicio de logística de entrega (Java 21, Spring Boot, Maven multi-módulo con arquitectura
-hexagonal): `domain`, `application`, `infrastructure`, `bootstrap`.
+hexagonal): `domain`, `application`, `infrastructure`, `bootstrap`. El módulo
+`consumidor-app-repartidor` no es parte del servicio: es el consumidor simulado del contrato Pact.
 
 Las pruebas **solitarias** (`*Test.java`) corren con `mvn test` y no necesitan nada levantado. Las
 **sociables** (`*IT.java`) corren con `mvn verify` y requieren Docker (Testcontainers: PostGIS y
-RabbitMQ).
+RabbitMQ). Las de **contrato** corren en esa misma ejecución: el consumer genera `pacts/*.json` en
+la fase `test` y el provider lo verifica en `verify`.
 
 Cómo levantar el servicio, la API, la demo y la configuración están en [`README.md`](README.md);
 no dupliques esas instrucciones aquí.

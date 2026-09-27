@@ -29,8 +29,10 @@ if [ ! -f testing-rules.md ]; then
     exit 1
 fi
 
-# Pruebas solitarias: *Test.java. Las sociables (*IT.java) las corre failsafe y no pasan por aqui.
-ARCHIVOS=$(find . -path ./target -prune -o -path '*/src/test/java/*' -name '*Test.java' -print | sort)
+# Pruebas solitarias: *Test.java. Las sociables (*IT.java) las corre failsafe y no pasan por aqui, y
+# las de contrato (*PactTest.java) las gobierna contract-testing-rules.md (verificar-contratos.sh).
+ARCHIVOS=$(find . -path ./target -prune -o -path '*/src/test/java/*' -name '*Test.java' \
+    ! -name '*PactTest.java' -print | sort)
 TOTAL_ARCHIVOS=$(printf '%s\n' "$ARCHIVOS" | grep -c . )
 
 VIOLACIONES=$(printf '%s\n' "$ARCHIVOS" | while read -r f; do

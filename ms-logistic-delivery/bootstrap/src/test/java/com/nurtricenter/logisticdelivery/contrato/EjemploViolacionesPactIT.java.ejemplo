@@ -1,0 +1,19 @@
+package com.nurtricenter.logisticdelivery.contrato;
+
+// Archivo de violaciones deliberadas del lado provider (contract-testing-rules.md). Igual que su par
+// del consumer: se copia como .java para ver fallar a scripts/verificar-contratos.sh --rapido y se borra.
+@PruebaDeIntegracion
+@Provider("ms-logistic-delivery")
+@PactFolder("pacts-copiados-a-mano")
+class EjemploViolacionesPactIT {
+
+    @MockitoBean
+    PlanificarRutaDelDia planificarRutaDelDia;
+
+    @TestTemplate
+    @ExtendWith(PactVerificationSpringProvider.class)
+    @DisplayName("verifica el contrato")
+    void verificar(PactVerificationContext context) {
+        context.verifyInteraction();
+    }
+}
